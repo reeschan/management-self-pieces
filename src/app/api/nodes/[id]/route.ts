@@ -1,11 +1,11 @@
-import { getSession } from "@/lib/auth/server";
+import { getAllowedSession } from "@/lib/auth/server";
 import { loadNodeDetail } from "@/lib/nodes/detail";
 
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getAllowedSession();
   if (session === null) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }

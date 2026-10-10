@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { getSession } from "@/lib/auth/server";
+import { getAllowedSession } from "@/lib/auth/server";
 import { NodeId } from "@/lib/manifest/schema";
 import {
   createTaskForNode,
@@ -23,7 +23,7 @@ const taskInputSchema: z.ZodType<TaskInput> = z.object({
 
 /** Node に Asana プロジェクトをつなぐ (無ければ作る) */
 export async function linkAsanaProject(nodeId: string): Promise<ExternalRef> {
-  if (!(await getSession())) throw new Error("unauthorized");
+  if (!(await getAllowedSession())) throw new Error("unauthorized");
   const id = NodeId.parse(nodeId);
   const ref = await linkNodeToAsana(id);
   revalidatePath("/");
@@ -35,7 +35,7 @@ export async function createTask(
   nodeId: string,
   input: TaskInput,
 ): Promise<TrackerTask> {
-  if (!(await getSession())) throw new Error("unauthorized");
+  if (!(await getAllowedSession())) throw new Error("unauthorized");
   const id = NodeId.parse(nodeId);
   const data = taskInputSchema.parse(input);
   const task = await createTaskForNode(id, data);
@@ -45,7 +45,7 @@ export async function createTask(
 
 /** Node のタスクを Asana から取り直す */
 export async function refreshNodeTasks(nodeId: string): Promise<number> {
-  if (!(await getSession())) throw new Error("unauthorized");
+  if (!(await getAllowedSession())) throw new Error("unauthorized");
   const id = NodeId.parse(nodeId);
   const count = await refreshTasks(id);
   revalidatePath("/");

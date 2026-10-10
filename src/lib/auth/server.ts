@@ -64,3 +64,11 @@ export type Auth = ReturnType<typeof getAuth>;
 export async function getSession() {
   return getAuth().api.getSession({ headers: await headers() });
 }
+
+/** 許可リストに含まれるユーザーのセッション (未ログイン・許可リスト外なら null)。 */
+export async function getAllowedSession() {
+  const session = await getSession();
+  if (session === null) return null;
+  if (!isAllowedEmail(session.user.email, authEnv().allowedEmails)) return null;
+  return session;
+}

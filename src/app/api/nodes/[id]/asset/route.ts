@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
 import { nodes } from "@/db/schema";
-import { getSession } from "@/lib/auth/server";
+import { getAllowedSession } from "@/lib/auth/server";
 import { createRepoSource } from "@/lib/github/app";
 import {
   assetKindOf,
@@ -19,7 +19,7 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await getSession();
+  const session = await getAllowedSession();
   if (session === null) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
