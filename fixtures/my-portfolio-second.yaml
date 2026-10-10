@@ -1,0 +1,8 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+id: my-portfolio-second
+kind: app
+title: 個人ポートフォリオ
+summary: three.js の 3D 背景と AI チャットを備えた、Next.js 製の個人ポートフォリオ。
+tags: [nextjs, threejs, ai-chat]
+meta:
+  deployTarget: Vercel

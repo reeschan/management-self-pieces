@@ -1,0 +1,9 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+id: ai-session-knowledge-viewer
+kind: app
+title: AI セッション知識ビューア
+summary: Claude Code / Codex の会話ログを要約・分類して閲覧する Next.js アプリ。
+tags: [nextjs, claude-code, codex]
+relations:
+  - type: related
+    to: my-portfolio-second

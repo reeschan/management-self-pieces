@@ -1,0 +1,8 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+# status: maintenance は「大きな開発は終わり、保守だけしている」状態の例。
+id: agentcron
+kind: app
+title: agentcron
+summary: Cron 式でローカルの AI エージェントを起動する、Go 製の常駐スケジューラ。
+status: maintenance
+tags: [go, scheduler, ai-agent]

@@ -1,0 +1,8 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+id: jev-client
+kind: library
+title: Jev 共通クライアント
+summary: Jev (判定 API) を呼ぶための共通クライアント。Python 版と JavaScript 版がある。
+tags: [python, javascript, api-client]
+meta:
+  packageName: jev-client

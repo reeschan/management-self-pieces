@@ -1,0 +1,20 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+# diagrams / links / tags / meta をすべて書いた例。
+id: management-self-pieces
+kind: app
+title: 自作物の管理ダッシュボード
+summary: 自分の成果物を node.yaml で集めて、関係をグラフで眺めるダッシュボード。
+detail: README.md
+diagrams:
+  - path: docs/architecture.svg
+    title: 構成図
+links:
+  site: https://example.com
+  docs: https://example.com/docs
+tags: [nextjs, dashboard, neon]
+relations:
+  - type: related
+    to: my-portfolio-second
+meta:
+  url: https://example.com
+  deployTarget: Vercel

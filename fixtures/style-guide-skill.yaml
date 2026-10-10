@@ -1,0 +1,15 @@
+# このファイルは node.yaml の例です (開発用のサンプル。pnpm db:seed で DB に入る)。
+id: style-guide-skill
+kind: skill
+title: style-guide スキル
+summary: 自由記述から UI テーマ (Tailwind v4 の theme.css) を作る Claude Code スキル。
+tags: [claude-code, tailwind]
+relations:
+  - type: uses
+    to: jev-client
+  # 登録されていない id への relation の例 (相手が無くても壊れない)
+  - type: related
+    to: pbi-orchestration-jev
+meta:
+  trigger: UI テーマを作りたいとき
+  runtime: Claude Code
