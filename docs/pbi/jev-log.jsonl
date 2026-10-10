@@ -91,3 +91,4 @@
 {"ts": "2026-10-10T17:58:40.076004", "pbi": "PBI-016", "gate": "select_model", "result": {"model": "haiku", "scores": {"novelty": 0, "coupling": 0, "ambiguity": 0}, "reasons": ["決定: どの条件にも当たらない", "novelty=0（confidence 1.00）", "coupling=0（confidence 0.59）", "ambiguity=0（confidence 0.88）"]}}
 {"ts": "2026-10-10T17:59:12.457450", "pbi": "PBI-002", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (1.0)", "result": "一発合格"}
 {"ts": "2026-10-10T18:04:12.260631", "pbi": "PBI-003", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (1.0)", "result": "一発合格"}
+{"ts": "2026-10-10T18:05:53.421390", "pbi": "PBI-004", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (0.97)", "result": "一発合格"}
