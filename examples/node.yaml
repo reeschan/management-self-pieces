@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://<your-app>.vercel.app/schema/node.json
+# node.yaml の例。src/lib/manifest/schema.ts のすべての項目を使っている。
+# 各リポジトリのルートに置く。エディタの補完は 1 行目のスキーマで効く。
+
+# Node の ID。英小文字・数字・ハイフンのみ。先頭は英小文字か数字。63 文字まで
+id: example-node
+# Node の種類。app / skill / library / doc / infra / other のいずれか
+kind: app
+# タイトル。1〜100 文字
+title: サンプルアプリ
+# 概要。1〜200 文字
+summary: 業務の記録を集めて表示する、Next.js 製の Web アプリ。
+# 詳細説明の Markdown ファイル。リポジトリ内の相対パス。省略すると README.md
+detail: docs/detail.md
+# 図の一覧。path はリポジトリ内の相対パス、title は任意
+diagrams:
+  - path: docs/architecture.svg
+    title: 構成図
+# 関連リンク。名前 → URL
+links:
+  site: https://example.com
+  repo: https://github.com/example/example-node
+# 状態。idea / active / maintenance / archived のいずれか。省略すると active
+status: active
+# タグ
+tags: [nextjs, dashboard]
+# 他の Node との関係。type は uses / depends-on / derived-from / part-of / related のいずれか
+# to は関係先の Node の ID (登録されていなくても検証は通る)
+relations:
+  - type: uses
+    to: example-library
+# kind ごとの追加情報。app は url (公開 URL) と deployTarget (デプロイ先) を書ける
+meta:
+  url: https://example.com
+  deployTarget: Vercel

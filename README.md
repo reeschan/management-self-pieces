@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# management-self-pieces
 
-## Getting Started
+自分の成果物 (アプリ・スキル・文書など) を「Node」として扱い、3D 空間に浮かぶグラフで眺め、Asana のプロジェクトでチケット管理するための個人用 Web アプリ。Node の内容は各リポジトリのルートに置く `node.yaml` が正で、アプリの DB は表示用の一時保存。消えても GitHub と Asana から作り直せる。
 
-First, run the development server:
+## 主な機能
+
+- 3D ダッシュボード: Node を関係付きのグラフで表示する
+- 詳細パネル: detail の Markdown、図の一覧、チケットを表示する
+- Asana 連携: Node と Asana プロジェクトを 1 対 1 で対応づけ、更新は Webhook で受け取る
+- GitHub からの自動取り込み: GitHub App の push Webhook で、リポジトリの node.yaml を読み直す
+
+## ローカルでの起動
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+# .env.example を .env.local にコピーし、値を入れる
+pnpm db:migrate
+pnpm db:seed
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000` を開く。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## スクリプト
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| スクリプト | 内容 |
+|---|---|
+| `pnpm dev` | 開発サーバーを起動する |
+| `pnpm build` | 本番用にビルドする |
+| `pnpm start` | ビルド済みの本番サーバーを起動する |
+| `pnpm lint` | ESLint を実行する |
+| `pnpm typecheck` | `next typegen` の後に `tsc --noEmit` を実行する |
+| `pnpm test:unit` | Vitest を 1 回実行する |
+| `pnpm db:generate` | Drizzle のマイグレーションファイルを生成する |
+| `pnpm db:migrate` | マイグレーションを `DATABASE_URL` の DB に適用する |
+| `pnpm db:seed` | `fixtures/` の node.yaml を DB に入れる (`scripts/seed.mts`) |
 
-## Learn More
+## 関連文書
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [docs/SETUP.md](docs/SETUP.md): 外部サービスの設定、環境変数、Vercel へのデプロイ
+- [docs/DESIGN.md](docs/DESIGN.md): 設計メモ (データの正、技術構成、拡張の口)
+- [docs/TODO.md](docs/TODO.md): 残タスク
