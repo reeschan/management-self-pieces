@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
+import { NodePanel } from "@/components/panel/node-panel";
 import { kindColors, type GraphData } from "@/lib/dashboard/graph";
 
 const Graph3D = dynamic(() => import("./graph-3d"), { ssr: false });
@@ -53,8 +54,10 @@ export function Dashboard({ data }: { data: GraphData }) {
       {selectedId && (
         <aside
           data-testid="node-panel-slot"
-          className="w-80 shrink-0 border-l border-zinc-800 bg-[#0b0d14]"
-        />
+          className="fixed top-0 right-0 z-20 h-screen w-[420px] max-w-full border-l border-zinc-800 bg-[#0b0d14]"
+        >
+          <NodePanel nodeId={selectedId} onClose={() => setSelectedId(null)} />
+        </aside>
       )}
     </div>
   );

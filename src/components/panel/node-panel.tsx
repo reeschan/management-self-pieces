@@ -1,0 +1,282 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import { DiagramView } from "./diagram-view";
+import { TicketsTab, type PanelTask } from "./tickets-tab";
+
+type PanelDetail = {
+  node: {
+    id: string;
+    kind: string;
+    title: string;
+    summary: string;
+    status: string;
+    tags: string[];
+    links: Record<string, string>;
+    sourceRepo: string;
+    updatedAt: string;
+  };
+  detail: { path: string; markdown: string | null };
+  diagrams: {
+    path: string;
+    title: string | null;
+    kind: string;
+    url: string;
+  }[];
+  asana: { projectId: string; url: string | null } | null;
+  tasks: PanelTask[];
+  importErrors: { path: string; message: string }[];
+};
+
+type Result =
+  | { nodeId: string; status: "ok"; data: PanelDetail }
+  | { nodeId: string; status: "notFound" }
+  | { nodeId: string; status: "error"; message: string };
+
+const TABS = ["概要", "詳細", "アーキ図", "チケット", "リンク"] as const;
+type Tab = (typeof TABS)[number];
+
+export function NodePanel({
+  nodeId,
+  onClose,
+}: {
+  nodeId: string;
+  onClose: () => void;
+}) {
+  const [reloadCount, setReloadCount] = useState(0);
+  const [result, setResult] = useState<Result | null>(null);
+  const [tab, setTab] = useState<Tab>("概要");
+  const [prevNodeId, setPrevNodeId] = useState(nodeId);
+
+  if (prevNodeId !== nodeId) {
+    setPrevNodeId(nodeId);
+    setTab("概要");
+  }
+
+  useEffect(() => {
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(`/api/nodes/${encodeURIComponent(nodeId)}`, {
+          signal: controller.signal,
+        });
+        if (res.status === 404) {
+          setResult({ nodeId, status: "notFound" });
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as PanelDetail;
+        if (controller.signal.aborted) return;
+        setResult({ nodeId, status: "ok", data });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setResult({
+          nodeId,
+          status: "error",
+          message: error instanceof Error ? error.message : "unknown error",
+        });
+      }
+    })();
+    return () => controller.abort();
+  }, [nodeId, reloadCount]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const reload = useCallback(() => setReloadCount((n) => n + 1), []);
+
+  // 再取得中は直前の結果を残し、別 Node に切り替わったときだけ読み込み中にする
+  const current = result !== null && result.nodeId === nodeId ? result : null;
+  const data = current?.status === "ok" ? current.data : null;
+
+  return (
+    <div className="flex h-full w-full flex-col text-zinc-100">
+      <header className="flex items-start justify-between gap-2 border-b border-zinc-800 p-3">
+        <div className="min-w-0">
+          <h2 className="truncate text-base font-semibold">
+            {data?.node.title ?? nodeId}
+          </h2>
+          {data && (
+            <p className="text-xs text-zinc-400">
+              {data.node.kind} / {data.node.status}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="閉じる"
+          className="rounded px-2 py-1 text-zinc-300 hover:bg-zinc-800"
+        >
+          ×
+        </button>
+      </header>
+
+      {current === null && (
+        <p className="p-4 text-sm text-zinc-400">読み込み中...</p>
+      )}
+      {current?.status === "notFound" && (
+        <p className="p-4 text-sm text-zinc-300">Node が見つかりません</p>
+      )}
+      {current?.status === "error" && (
+        <p role="alert" className="p-4 text-sm text-red-400">
+          読み込みに失敗しました ({current.message})
+        </p>
+      )}
+
+      {data && (
+        <>
+          <div role="tablist" className="flex border-b border-zinc-800 text-sm">
+            {TABS.map((t) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                id={`tab-${t}`}
+                aria-selected={tab === t}
+                aria-controls="node-panel-tabpanel"
+                onClick={() => setTab(t)}
+                className={`flex-1 px-1 py-2 ${
+                  tab === t
+                    ? "border-b-2 border-indigo-400 text-white"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          <div
+            role="tabpanel"
+            id="node-panel-tabpanel"
+            aria-labelledby={`tab-${tab}`}
+            className="flex-1 overflow-y-auto p-4"
+          >
+            <TabBody tab={tab} data={data} onChanged={reload} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TabBody({
+  tab,
+  data,
+  onChanged,
+}: {
+  tab: Tab;
+  data: PanelDetail;
+  onChanged: () => void;
+}) {
+  switch (tab) {
+    case "概要":
+      return (
+        <div className="space-y-3 text-sm">
+          {data.importErrors.length > 0 && (
+            <div className="rounded border border-amber-600 bg-amber-950/40 p-2 text-amber-200">
+              <p className="font-semibold">取り込みの警告</p>
+              <ul className="mt-1 list-disc pl-4 text-xs">
+                {data.importErrors.map((e) => (
+                  <li key={`${e.path}:${e.message}`}>
+                    {e.path}: {e.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="whitespace-pre-wrap">{data.node.summary}</p>
+          {data.node.tags.length > 0 && (
+            <ul className="flex flex-wrap gap-1">
+              {data.node.tags.map((t) => (
+                <li
+                  key={t}
+                  className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300"
+                >
+                  {t}
+                </li>
+              ))}
+            </ul>
+          )}
+          <dl className="space-y-1 text-xs text-zinc-400">
+            <div>
+              <dt className="inline">更新日時: </dt>
+              <dd className="inline">{data.node.updatedAt}</dd>
+            </div>
+            <div>
+              <dt className="inline">取り込み元: </dt>
+              <dd className="inline">{data.node.sourceRepo}</dd>
+            </div>
+          </dl>
+        </div>
+      );
+    case "詳細":
+      return data.detail.markdown === null ? (
+        <p className="text-sm text-zinc-400">
+          詳細を読み込めませんでした ({data.detail.path})
+        </p>
+      ) : (
+        <div className="space-y-3 text-sm leading-relaxed [&_a]:text-indigo-300 [&_a]:underline [&_code]:rounded [&_code]:bg-zinc-800 [&_code]:px-1 [&_h1]:text-lg [&_h1]:font-bold [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_ol]:list-decimal [&_pre]:overflow-x-auto [&_pre]:bg-zinc-900 [&_pre]:p-2 [&_table]:border-collapse [&_td]:border [&_td]:border-zinc-700 [&_td]:px-2 [&_th]:border [&_th]:border-zinc-700 [&_th]:px-2 [&_ul]:list-disc">
+          <Markdown remarkPlugins={[remarkGfm]}>{data.detail.markdown}</Markdown>
+        </div>
+      );
+    case "アーキ図":
+      return data.diagrams.length === 0 ? (
+        <p className="text-sm text-zinc-400">
+          node.yaml の diagrams に図を追加すると表示されます
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {data.diagrams.map((d) => (
+            <figure key={d.path} className="space-y-1">
+              {d.title && (
+                <figcaption className="text-xs text-zinc-400">
+                  {d.title}
+                </figcaption>
+              )}
+              <DiagramView title={d.title} kind={d.kind} url={d.url} />
+            </figure>
+          ))}
+        </div>
+      );
+    case "チケット":
+      return (
+        <TicketsTab
+          nodeId={data.node.id}
+          asana={data.asana}
+          tasks={data.tasks}
+          onChanged={onChanged}
+        />
+      );
+    case "リンク": {
+      const entries = Object.entries(data.node.links);
+      return entries.length === 0 ? (
+        <p className="text-sm text-zinc-400">リンクはありません</p>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {entries.map(([name, url]) => (
+            <li key={name}>
+              {name}:{" "}
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="break-all text-indigo-300 underline"
+              >
+                {url}
+              </a>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+}
