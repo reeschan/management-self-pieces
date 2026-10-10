@@ -103,3 +103,4 @@
 {"ts": "2026-10-10T18:29:57.061062", "pbi": "PBI-011", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (1.0)", "result": "一発合格"}
 {"ts": "2026-10-10T18:31:52.304969", "pbi": "PBI-012", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (1.0)", "result": "一発合格"}
 {"ts": "2026-10-10T18:31:53.530509", "pbi": "PBI-018", "gate": "select_model", "result": {"model": "sonnet", "scores": {"novelty": 0, "coupling": 0, "ambiguity": 0}, "reasons": ["決定: modules=2 >= 2", "novelty=0（confidence 1.00）", "coupling=0（confidence 0.59 < 0.7 のため 1 を 0 に下げた）", "ambiguity=0（confidence 0.94）"]}}
+{"ts": "2026-10-10T18:32:57.398933", "pbi": "PBI-018", "gate": "report", "answer": null, "action": "Jev report: done_with_evidence (0.92)", "result": "一発合格"}

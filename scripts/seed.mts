@@ -1,30 +1,10 @@
-import { spawnSync } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { getDb } from "@/db/client";
+import { EnvError } from "@/lib/env";
 import type { ImportResult } from "@/lib/github/types";
-
-
-// run.ts が読み込む octokit は ESM 専用で、tsx が CJS として読むと入れ子の依存を
-// 解決できない。"import" 条件を付けた Node で自分自身を起動し直して回避する。
-if (!process.env.NODE_OPTIONS?.includes("--conditions=import")) {
-  const child = spawnSync(
-    process.execPath,
-    [...process.execArgv, ...process.argv.slice(1)],
-    {
-      stdio: "inherit",
-      env: {
-        ...process.env,
-        NODE_OPTIONS: `${process.env.NODE_OPTIONS ?? ""} --conditions=import`.trim(),
-      },
-    },
-  );
-  process.exit(child.status ?? 1);
-}
-
-const { getDb } = await import("@/db/client");
-const { EnvError } = await import("@/lib/env");
-const { applyImportResult } = await import("@/lib/import/run");
-const { parseManifest } = await import("@/lib/manifest/parse");
+import { applyImportResult } from "@/lib/import/apply-result";
+import { parseManifest } from "@/lib/manifest/parse";
 
 const fixturesDir = path.join(process.cwd(), "fixtures");
 
