@@ -2,6 +2,7 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 
 import { dbEnv } from "@/lib/env";
+import * as authSchema from "./auth-schema";
 import * as appSchema from "./schema";
 
 /**
@@ -10,7 +11,7 @@ import * as appSchema from "./schema";
  * neon-http はトランザクションに対応しないので、まとめて書くときは `db.batch([...])` を使う。
  */
 
-const schema = { ...appSchema };
+const schema = { ...appSchema, ...authSchema };
 
 function createDb() {
   const { databaseUrl } = dbEnv();

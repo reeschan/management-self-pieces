@@ -8,6 +8,13 @@
       "when": 1791623091894,
       "tag": "0000_fixed_sasquatch",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791623285428,
+      "tag": "0001_safe_gorgon",
+      "breakpoints": true
     }
   ]
 }
