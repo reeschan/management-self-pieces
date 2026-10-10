@@ -164,4 +164,23 @@ describe("planSync", () => {
     const plan = planSync([], result({ errors, scannedRepos: ["me/bad"] }));
     expect(plan.errors).toEqual(errors);
   });
+
+  test("検証エラーが出たリポジトリの既存 Node は deleteIds に入らない", () => {
+    const plan = planSync(
+      [{ id: "broken", sourceRepo: "me/bad", sourceSha: "s" }],
+      result({
+        errors: [{ repo: "me/bad", path: "node.yaml", message: "id: 必須です" }],
+        scannedRepos: ["me/bad"],
+      }),
+    );
+    expect(plan.deleteIds).toEqual([]);
+  });
+
+  test("同じ状況でエラーが無ければ、既存 Node は deleteIds に入る", () => {
+    const plan = planSync(
+      [{ id: "broken", sourceRepo: "me/bad", sourceSha: "s" }],
+      result({ errors: [], scannedRepos: ["me/bad"] }),
+    );
+    expect(plan.deleteIds).toEqual(["broken"]);
+  });
 });

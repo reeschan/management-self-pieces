@@ -58,8 +58,15 @@ export function planSync(
   }
 
   const importedIds = new Set(result.manifests.map((m) => m.manifest.id));
+  // 検証エラーが出たリポジトリの既存 Node は、直されるまで前の内容のまま残す
+  const erroredRepos = new Set(result.errors.map((e) => e.repo));
   const deleteIds = existing
-    .filter((n) => scope.has(n.sourceRepo) && !importedIds.has(n.id))
+    .filter(
+      (n) =>
+        scope.has(n.sourceRepo) &&
+        !importedIds.has(n.id) &&
+        !erroredRepos.has(n.sourceRepo),
+    )
     .map((n) => n.id);
 
   return {
