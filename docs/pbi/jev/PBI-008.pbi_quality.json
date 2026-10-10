@@ -1,1 +1,1 @@
-{"error": "HTTP 401: {\"detail\":{\"error_type\":\"authentication_error\",\"message\":\"Cannot authenticate with the server. Please check your API key and try again.\"}}"}
+{"model": "jev-1.13.0", "answers": {"targets_named": {"type": "noul", "noul": 0.98}, "off_limits_named": {"type": "noul", "noul": 0.98}, "criteria_checkable": {"type": "noul", "noul": 0.48}, "commands_runnable": {"type": "noul", "noul": 0.85}, "needs_outside_context": {"type": "noul", "noul": 0.44}}, "usage": {"input_tokens": 2043, "output_tokens": 97}}
