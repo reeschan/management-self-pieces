@@ -2,6 +2,15 @@
 
 自分の成果物 (アプリ・スキル・文書など) を「Node」として扱い、3D 空間に浮かぶグラフで眺め、Asana のプロジェクトでチケット管理するための個人用 Web アプリ。Node の内容は各リポジトリのルートに置く `node.yaml` が正で、アプリの DB は表示用の一時保存。消えても GitHub と Asana から作り直せる。
 
+## 構成
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture/architecture-dark.svg">
+  <img src="docs/architecture/architecture-light.svg" alt="management-self-pieces のアーキテクチャ図。持ち主はブラウザの 3D ダッシュボードから Vercel 上の Next.js アプリを使い、アプリは Neon に表示用データを保存する。GitHub の node.yaml と Asana のチケットが正で、push とタスク更新は Webhook で受け、1 日 1 回の Cron でも取り込み直す。ログインは Better Auth 経由の Google / GitHub OAuth。">
+</picture>
+
+図のソースは [docs/architecture/architecture.d2](docs/architecture/architecture.d2)。構成を変えたら `.d2` を直し、`arch-diagram` スキルの `render.py` で SVG を描き直す。
+
 ## 主な機能
 
 - 3D ダッシュボード: Node を関係付きのグラフで表示する
