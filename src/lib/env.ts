@@ -8,6 +8,15 @@ import { z } from "zod";
 
 type EnvSource = Record<string, string | undefined>;
 
+// ローカル機能を明示的に有効にしたときだけローカルとして扱う。
+// Vercel ではフラグにかかわらず必ずホストとして扱う。
+export function runtimeMode(source: EnvSource = process.env): "local" | "host" {
+  return source.LOCAL_AGENT_FEATURES === "1" &&
+    (source.VERCEL === undefined || source.VERCEL === "")
+    ? "local"
+    : "host";
+}
+
 export class EnvError extends Error {
   constructor(message: string) {
     super(message);

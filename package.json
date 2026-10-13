@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -14,8 +15,10 @@
     "db:seed": "tsx --env-file-if-exists=.env.local scripts/seed.mts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@neondatabase/serverless": "^1.2.0",
     "@octokit/webhooks-methods": "^6.0.0",
+    "@vercel/functions": "^3.9.11",
     "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "mermaid": "^12.1.0",
@@ -31,6 +34,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

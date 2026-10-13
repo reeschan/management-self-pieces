@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { asanaEnv, authEnv, cronEnv, dbEnv, EnvError, githubEnv } from "./env";
+import { runtimeMode } from "./env";
 
 const authSource = {
   APP_URL: "https://example.com/",
@@ -172,4 +173,36 @@ describe("cronEnv", () => {
     expect(error.message).toContain("CRON_SECRET");
     expect(error.message).not.toContain("tooshort");
   });
+});
+
+describe("runtimeMode", () => {
+  test("未設定ならホストとして扱う", () => {
+    expect(runtimeMode({})).toBe("host");
+  });
+
+  test("ローカル機能が 1 で VERCEL が未設定ならローカルとして扱う", () => {
+    expect(runtimeMode({ LOCAL_AGENT_FEATURES: "1" })).toBe("local");
+  });
+
+  test("Vercel ではローカル機能が 1 でもホストとして扱う", () => {
+    expect(runtimeMode({ LOCAL_AGENT_FEATURES: "1", VERCEL: "1" })).toBe("host");
+  });
+
+  test.each(["true", "yes", "0", "", " 1 "])(
+    "ローカル機能が %j ならホストとして扱う",
+    (value) => {
+      expect(runtimeMode({ LOCAL_AGENT_FEATURES: value })).toBe("host");
+    },
+  );
+
+  test("ローカル機能が 1 で VERCEL が空文字ならローカルとして扱う", () => {
+    expect(runtimeMode({ LOCAL_AGENT_FEATURES: "1", VERCEL: "" })).toBe("local");
+  });
+
+  test.each(["0", "false", " "])(
+    "VERCEL が空でない %j ならホストとして扱う",
+    (value) => {
+      expect(runtimeMode({ LOCAL_AGENT_FEATURES: "1", VERCEL: value })).toBe("host");
+    },
+  );
 });
