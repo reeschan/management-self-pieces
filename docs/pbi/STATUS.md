@@ -1,4 +1,6 @@
-opencode: Git Bash から見つからない (command not found。ユーザーは入っていると言うので場所を確認中)
+Codex: 利用上限 (2026-10-14 03:51 まで)。以降の PBI では codex を飛ばす
+opencode: fnm のグローバル (/c/Users/owner/AppData/Roaming/fnm/node-versions/v26.8.1/installation) にある。PATH に足して使う (v1.19.0)
+--skip 候補 (v11): agy (headless でコマンドが自動拒否される)。opencode は v10 以降 fnm の Node のグローバルを PATH に足して探す (runners.md)。Codex は 2026-10-14 03:51 まで上限だった
 Antigravity: 使用不可 (2026-10-13 22:5x。headless でコマンドが自動拒否され、ファイルだけの PBI でも作業が進まない。許可ルールはリポジトリ外なので足していない)。このセッションの残りの PBI では agy を飛ばす
 
 # STATUS
@@ -37,3 +39,21 @@ Antigravity: 使用不可 (2026-10-13 22:5x。headless でコマンドが自動�
 | PBI-050 | codex high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格。Codex は EPERM で typecheck/build を確かめられず、オーケストレーターが実行。検証コマンド 1 は Git Bash のパス変換で 0 になる (MSYS_NO_PATHCONV=1 で 1) |
 | PBI-051 | codex medium（haiku 相当） | 完了 | 0/2 | 0/1 | 0/2 | opencode が PATH に無く (command not found) codex に切り替え。一発合格。登録例の二重引用符でトークンが設定ファイルに展開される問題 (PBI-050 の書き方由来) を PBI-052 で直す |
 | PBI-052 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | 登録コマンドの例でトークンが展開されないよう引用符を直す (画面と SETUP.md)。一発合格。検証コマンド 1 は範囲外の行に当たる不備があり、オーケストレーターが直した |
+| PBI-060 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-061 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-062 | codex high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 |
+| PBI-063 | codex high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 |
+| PBI-064 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | Codex が利用上限で途中終了 (task-cache.ts と service.ts は書けたがテストが無い)。オーケストレーターが誤って完了と記録したのを取り消し、agent sonnet で続きを行う。合格 (Codex が途中で止まり、agent sonnet が仕上げ) |
+| PBI-065 | agent opus（opus 相当） | 完了 | 1/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格。差し戻し 1: アプリのコメントを Owner のコメントと取り違える不具合 (PAT の作成者が持ち主のため) |
+| PBI-066 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-067 | codex high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 |
+| PBI-068 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格。tools/list の既存テストの期待値変更は PBI の矛盾によるもので了承 |
+| PBI-069 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-070 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-071 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格 |
+| PBI-072 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | Codex が利用上限のため agent。一発合格 |
+| PBI-073 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | Codex が利用上限のため agent。一発合格 |
+| PBI-074 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | Codex が利用上限のため agent。一発合格 |
+| PBI-075 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格。検証コマンド 3・4 の不具合 (オーケストレーターの誤り) を直した |
+| PBI-076 | agent haiku max（haiku 相当） | 完了 | 0/2 | 0/1 | 0/2 | opencode と Codex が使えないため agent。一発合格 |
+| PBI-077 | opencode deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | v11 で起票。承認済み (2026-10-14「作業の続きどうぞ」)。一発合格 (opencode を fnm のグローバルから起動) |
