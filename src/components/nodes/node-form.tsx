@@ -189,14 +189,17 @@ export function NodeForm({ initial, mode, targets, deletionBlockers = [] }: Prop
     startTransition(async () => {
       try {
         const value = buildFields();
-        if (mode === "create") {
-          await createNode({ ...value, id, repo: initial.repo });
-        } else {
-          await updateNode(initial.id, value);
+        const result =
+          mode === "create"
+            ? await createNode({ ...value, id, repo: initial.repo })
+            : await updateNode(initial.id, value);
+        if (!result.ok) {
+          setError(result.message);
+          return;
         }
         router.push("/nodes");
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -207,10 +210,14 @@ export function NodeForm({ initial, mode, targets, deletionBlockers = [] }: Prop
     setError(null);
     startTransition(async () => {
       try {
-        await deleteNode(initial.id);
+        const result = await deleteNode(initial.id);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         router.push("/nodes");
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }

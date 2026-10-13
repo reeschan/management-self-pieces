@@ -37,8 +37,8 @@ export function NodeTransferSection() {
     startTransition(async () => {
       try {
         await action();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -46,8 +46,12 @@ export function NodeTransferSection() {
   function handleExport() {
     if (pending) return;
     run(async () => {
-      const json = await exportNodesAction();
-      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const result = await exportNodesAction();
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([result.value], { type: "application/json" }));
       const link = document.createElement("a");
       link.href = url;
       link.download = downloadFileName(new Date());
@@ -71,8 +75,8 @@ export function NodeTransferSection() {
     startTransition(async () => {
       try {
         setPreview(await previewImportAction(content));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -81,7 +85,11 @@ export function NodeTransferSection() {
     if (pending || text === null || preview === null || !preview.ok) return;
     run(async () => {
       const result = await importNodesAction(text);
-      setNotice(`追加 ${result.added} 件・更新 ${result.updated} 件を読み込みました。`);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      setNotice(`追加 ${result.value.added} 件・更新 ${result.value.updated} 件を読み込みました。`);
       setPreview(null);
       setText(null);
       setFileName(null);
