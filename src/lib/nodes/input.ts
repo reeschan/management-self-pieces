@@ -22,8 +22,8 @@ export const NodeRepo = z
   })
   .describe("Node のリポジトリ");
 
-/** id を含まない項目の形。create と update で共有する */
-const fieldsShape = {
+/** id を含まない項目の形。create と update で共有する (書き出しの形を組み立てるのにも使う) */
+export const fieldsShape = {
   kind: z.enum(kindIds).describe("Node の種類"),
   title: z
     .string()

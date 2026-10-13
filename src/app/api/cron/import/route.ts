@@ -1,8 +1,15 @@
+// パス名 (cron/import) は以前の取り込み (node.yaml の取り込み) の名残。
+// 取り込みは廃止したが、vercel.json の Cron がこのパスを呼ぶため変えない。
 import { getDb } from "@/db/client";
 import { cronEnv } from "@/lib/env";
+import { createRepoSource } from "@/lib/github/app";
 import { isAuthorizedCron } from "@/lib/github/webhook";
 import { purgeAudit } from "@/lib/mcp/audit";
 import { purgeRateLimits } from "@/lib/mcp/rate-limit";
+import {
+  createRepoLinkService,
+  type RefreshSummary,
+} from "@/lib/nodes/repo-link";
 
 export const maxDuration = 60;
 
@@ -33,7 +40,20 @@ export async function GET(req: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // 90 日を過ぎた監査ログと古い回数の行を消す
+  // Node とリポジトリのつながり (名前と届くか) を直す
+  let summary: RefreshSummary;
+  try {
+    summary = await createRepoLinkService({
+      db: getDb(),
+      source: createRepoSource,
+      now: () => new Date(),
+    }).refreshAll();
+  } catch (error) {
+    console.error("[cron:import] repo link refresh failed", error);
+    return Response.json({ error: "internal error" }, { status: 500 });
+  }
+
+  // つながりの更新の後で、90 日を過ぎた監査ログと古い回数の行を消す
   const now = new Date();
   const auditPurged = await purgeSafely("audit", () =>
     purgeAudit(getDb(), now),
@@ -42,5 +62,5 @@ export async function GET(req: Request) {
     purgeRateLimits(getDb(), now),
   );
 
-  return Response.json({ auditPurged, rateLimitsPurged });
+  return Response.json({ ...summary, auditPurged, rateLimitsPurged });
 }
