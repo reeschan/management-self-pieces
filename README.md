@@ -17,6 +17,7 @@
 - 詳細パネル: detail の Markdown、図の一覧、チケットを表示する
 - Asana 連携: Node と Asana プロジェクトを 1 対 1 で対応づけ、更新は Webhook で受け取る
 - GitHub からの自動取り込み: GitHub App の push Webhook で、リポジトリの node.yaml を読み直す
+- MCP の口: Claude Code から Node と看板を読む (`/api/mcp`)。エージェント用トークンと IP 許可リストで守る
 
 ## ローカルでの起動
 
@@ -35,6 +36,7 @@ pnpm dev
 | スクリプト | 内容 |
 |---|---|
 | `pnpm dev` | 開発サーバーを起動する |
+| `pnpm dev:local` | 127.0.0.1 だけで待ち受けて開発サーバーを起動する (ローカル機能を使うとき) |
 | `pnpm build` | 本番用にビルドする |
 | `pnpm start` | ビルド済みの本番サーバーを起動する |
 | `pnpm lint` | ESLint を実行する |

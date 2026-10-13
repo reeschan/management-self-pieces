@@ -61,3 +61,57 @@ GitHub の Settings > Developer settings > GitHub Apps で App を作る。
 - 取り込みエラー: ダッシュボードの Node の概要タブに出る。node.yaml の検証に失敗した場合は、そのメッセージを見て直す
 - 手動で全部取り込み直す: `curl -H "Authorization: Bearer $CRON_SECRET" <APP_URL>/api/cron/import`
 - Asana の Webhook を作り直す: `sync_state` テーブルの `asana:webhook-secret:<project gid>` の行を消してから、Node をつなぎ直す
+
+## 9. MCP の口
+
+Claude Code から `/api/mcp` に接続し、Node と看板を読む。
+
+### マイグレーション
+
+対象の DB を `DATABASE_URL` に設定し、`pnpm db:migrate` を実行する。MCP 用に `agent_tokens`・`ip_allowlist`・`mcp_rate_limits`・`mcp_audit_log` の 4 テーブルが増える。
+
+### ホスト (Vercel) で使う
+
+1. アプリにログインし、設定画面 (`/settings`) の「今の IP を許可」を押す。または、接続元の CIDR を IP 許可リストに追加する
+2. 設定画面でエージェント用トークンを発行する。M1 の読み取りには `read` 権限を選ぶ。値は発行時にしか表示されないのでコピーし、Claude Code を動かす PC の環境変数 `PIECES_AGENT_TOKEN` に入れる
+3. 次のコマンドで登録する。`<アプリ>` はデプロイ先のホスト名に置き換える
+
+ヘッダーは単一引用符で囲み、`${PIECES_AGENT_TOKEN}` をシェルに展開させずにそのまま Claude Code に渡す。Claude Code は接続するときに環境変数から値を読むので、設定ファイル (`~/.claude.json`) にトークンの値は残らない。
+
+Bash では、トークンをシェルの設定ファイル (例 `~/.bashrc`) で環境変数 `PIECES_AGENT_TOKEN` として export しておき、次のコマンドで登録する。
+
+```bash
+claude mcp add --scope user --transport http pieces https://<アプリ>/api/mcp --header 'Authorization: Bearer ${PIECES_AGENT_TOKEN}'
+```
+
+Windows では `setx PIECES_AGENT_TOKEN "<トークン>"` で環境変数に保存し、新しく開いた PowerShell で登録する。`setx` の値は実行中のターミナルには反映されない。
+
+```powershell
+claude mcp add --scope user --transport http pieces https://<アプリ>/api/mcp --header 'Authorization: Bearer ${PIECES_AGENT_TOKEN}'
+```
+
+登録したら `claude mcp get pieces` を実行し、ヘッダーが `${PIECES_AGENT_TOKEN}` のまま (トークンの値が出ていない) ことを確かめる。値が出ていたら `claude mcp remove --scope user pieces` で外し、単一引用符で登録し直す。
+
+### ローカルで使う
+
+1. `.env.local` に `LOCAL_AGENT_FEATURES=1` を入れる (`VERCEL` が設定されている環境ではホストモードになる)
+2. `pnpm dev:local` で起動する。127.0.0.1 だけで待ち受ける
+3. 次のコマンドで登録する。ローカルではトークンと IP 許可リストは不要
+
+```bash
+claude mcp add --scope user --transport http pieces http://127.0.0.1:3000/api/mcp
+```
+
+ホストとローカルを切り替えるときは、先に `claude mcp remove --scope user pieces` で既存の登録を外す。
+
+### 守り
+
+- 権限は `read` (読み取り)・`board` (看板の書き込み)・`loop` (開発ループの制御) に分ける。M1 で使えるのは `read` の `list_nodes`・`get_project`・`get_board` の 3 ツール。`board`・`loop` のツールは今後追加する
+- ホストではトークンごとに、全体 1200 回/時、書き込み 300 回/時を上限とする。UTC の正時ごとの固定枠で数える
+- ツールの実行結果や拒否理由は監査ログに残す。90 日を過ぎたログは取り込み Cron の実行時に削除する
+- ホストでは IP 許可リストが空なら全部拒否する。許可された IP でも有効なトークンが要る
+- ローカルでは Host と Origin (ある場合) がループバックのホスト名かを確かめる
+
+### IP が変わって弾かれたとき
+
+設定画面の監査ログを「拒否だけ」に絞り、理由が `ip_not_allowed` かを確かめる。「今の IP を許可」を押すか、Claude Code の接続元の CIDR を追加して再接続する。再び弾かれたら「拒否だけ」で新しいログを確かめる。
