@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -91,6 +93,10 @@ export const taskCache = pgTable(
     dueOn: text("due_on"),
     url: text("url"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    // devloop の看板: 列 (セクション)・タグ・マーカーの中身
+    section: text("section"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    meta: jsonb("meta").$type<Record<string, unknown>>(),
   },
   (table) => [
     primaryKey({ columns: [table.provider, table.externalId] }),
@@ -191,6 +197,114 @@ export const mcpAuditLog = pgTable(
   (table) => [index("mcp_audit_log_created_at_idx").on(table.createdAt)],
 );
 
+/**
+ * devloop の実行時の制御。ここだけはアプリの DB が正。
+ * 消えたら「一時停止・L1」で作り直すため、既定値は安全側にしておく。
+ */
+export const devProjects = pgTable(
+  "dev_projects",
+  {
+    nodeId: text("node_id")
+      .primaryKey()
+      .references(() => nodes.id, { onDelete: "cascade" }),
+    enabled: boolean("enabled").notNull().default(false),
+    paused: boolean("paused").notNull().default(true),
+    pauseReason: text("pause_reason"),
+    autonomy: integer("autonomy").notNull().default(1),
+    maxIterationsPerDay: integer("max_iterations_per_day").notNull().default(1),
+    maxPbisPerIteration: integer("max_pbis_per_iteration")
+      .notNull()
+      .default(10),
+    // 1 スプリントで扱う PBI の上限
+    sprintLimit: integer("sprint_limit").notNull().default(6),
+    // 次に回すプロジェクトを選んだ最後の時刻
+    lastSelectedAt: timestamp("last_selected_at", { withTimezone: true }),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    check(
+      "dev_projects_autonomy_check",
+      sql`${table.autonomy} >= 0 AND ${table.autonomy} <= 3`,
+    ),
+  ],
+);
+
+/** devloop 全体の制御 (`global_stop` など) */
+export const devloopControl = pgTable("devloop_control", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type DevloopRunStatus =
+  "running" | "succeeded" | "failed" | "noop" | "rate_limited";
+
+export const devloopRuns = pgTable(
+  "devloop_runs",
+  {
+    // 呼び出し側が ULID などを入れる
+    id: text("id").primaryKey(),
+    nodeId: text("node_id")
+      .notNull()
+      .references(() => nodes.id, { onDelete: "cascade" }),
+    iteration: integer("iteration"),
+    phase: text("phase").notNull(),
+    status: text("status").$type<DevloopRunStatus>().notNull(),
+    summary: text("summary").notNull().default(""),
+    tokens: jsonb("tokens")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("devloop_runs_node_id_started_at_idx").on(
+      table.nodeId,
+      table.startedAt,
+    ),
+  ],
+);
+
+/** 対象リポジトリの `docs/iterations/NNN/` の写し */
+export const iterations = pgTable(
+  "iterations",
+  {
+    nodeId: text("node_id")
+      .notNull()
+      .references(() => nodes.id, { onDelete: "cascade" }),
+    number: integer("number").notNull(),
+    goal: text("goal").notNull(),
+    phase: text("phase").notNull(),
+    result: text("result"),
+    bizScores: jsonb("biz_scores")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    stories: jsonb("stories").$type<unknown[]>().notNull().default([]),
+    prUrl: text("pr_url"),
+    stats: jsonb("stats")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+    // report_run からは届かないため null を許す
+    sourceSha: text("source_sha"),
+  },
+  (table) => [primaryKey({ columns: [table.nodeId, table.number] })],
+);
+
 export type NodeRow = typeof nodes.$inferSelect;
 export type NewNodeRow = typeof nodes.$inferInsert;
 export type RelationRow = typeof relations.$inferSelect;
@@ -211,3 +325,11 @@ export type McpRateLimitRow = typeof mcpRateLimits.$inferSelect;
 export type NewMcpRateLimitRow = typeof mcpRateLimits.$inferInsert;
 export type McpAuditLogRow = typeof mcpAuditLog.$inferSelect;
 export type NewMcpAuditLogRow = typeof mcpAuditLog.$inferInsert;
+export type DevProjectRow = typeof devProjects.$inferSelect;
+export type NewDevProjectRow = typeof devProjects.$inferInsert;
+export type DevloopControlRow = typeof devloopControl.$inferSelect;
+export type NewDevloopControlRow = typeof devloopControl.$inferInsert;
+export type DevloopRunRow = typeof devloopRuns.$inferSelect;
+export type NewDevloopRunRow = typeof devloopRuns.$inferInsert;
+export type IterationRow = typeof iterations.$inferSelect;
+export type NewIterationRow = typeof iterations.$inferInsert;

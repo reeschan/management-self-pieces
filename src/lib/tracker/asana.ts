@@ -4,8 +4,11 @@ import type {
   ExternalRef,
   NodeSummary,
   TaskInput,
+  TrackerComment,
   TrackerProvider,
+  TrackerSection,
   TrackerTask,
+  TrackerTaskDetail,
 } from "./types";
 
 const BASE_URL = "https://app.asana.com/api/1.0";
@@ -48,6 +51,43 @@ const taskSchema = z.object({
   permalink_url: z.string().nullable().optional(),
 });
 
+const sectionSchema = z.object({ gid: z.string(), name: z.string() });
+
+const taskDetailSchema = taskSchema.extend({
+  notes: z.string().nullable().optional(),
+  tags: z
+    .array(z.object({ name: z.string() }))
+    .nullable()
+    .optional(),
+  memberships: z
+    .array(
+      z.object({
+        project: z.object({ gid: z.string() }).nullable().optional(),
+        section: sectionSchema.partial().nullable().optional(),
+      }),
+    )
+    .nullable()
+    .optional(),
+  assignee: z.object({ gid: z.string() }).nullable().optional(),
+});
+
+const tagSchema = z.object({ gid: z.string(), name: z.string() });
+
+const storySchema = z.object({
+  gid: z.string(),
+  text: z.string().nullable().optional(),
+  created_by: z.object({ gid: z.string() }).nullable().optional(),
+  created_at: z.string(),
+  resource_subtype: z.string().nullable().optional(),
+});
+
+const emptySchema = z.unknown();
+
+const TASK_DETAIL_FIELDS =
+  "name,completed,due_on,permalink_url,notes,tags.name,memberships.section.name,memberships.project.gid,assignee.gid";
+
+const STORY_FIELDS = "text,created_by.gid,created_at,resource_subtype";
+
 const webhookSchema = z.object({ gid: z.string() });
 
 function pageSchema<T extends z.ZodType>(item: T) {
@@ -60,6 +100,8 @@ function singleSchema<T extends z.ZodType>(item: T) {
 
 type Project = z.infer<typeof projectSchema>;
 type Task = z.infer<typeof taskSchema>;
+type TaskDetail = z.infer<typeof taskDetailSchema>;
+type Story = z.infer<typeof storySchema>;
 
 function toExternalRef(p: Project): ExternalRef {
   return {
@@ -79,13 +121,49 @@ function toTrackerTask(t: Task): TrackerTask {
   };
 }
 
+function toTrackerTaskDetail(
+  t: TaskDetail,
+  projectId?: string,
+): TrackerTaskDetail {
+  const memberships = t.memberships ?? [];
+  // projectId が無いとき (getTask・updateTask) は最初の所属の列を使う
+  const membership =
+    projectId === undefined
+      ? memberships[0]
+      : memberships.find((m) => m.project?.gid === projectId);
+  const section = membership?.section ?? null;
+  return {
+    ...toTrackerTask(t),
+    notes: t.notes ?? "",
+    tags: (t.tags ?? []).map((tag) => tag.name),
+    sectionId: section?.gid ?? null,
+    sectionName: section?.name ?? null,
+    assigneeId: t.assignee?.gid ?? null,
+  };
+}
+
+function toTrackerSection(s: z.infer<typeof sectionSchema>): TrackerSection {
+  return { externalId: s.gid, name: s.name };
+}
+
+function toTrackerComment(s: Story): TrackerComment {
+  return {
+    externalId: s.gid,
+    text: s.text ?? "",
+    authorId: s.created_by?.gid ?? null,
+    createdAt: s.created_at,
+  };
+}
+
 export function createAsanaProvider(
   opts: AsanaProviderOptions,
 ): TrackerProvider {
   const doFetch = opts.fetch ?? fetch;
+  // タグの名前 → gid。キャッシュはこの provider のインスタンスの中だけ
+  const tagIds = new Map<string, string>();
 
   async function request<T>(
-    method: "GET" | "POST",
+    method: "GET" | "POST" | "PUT",
     path: string,
     query: Record<string, string>,
     schema: z.ZodType<T>,
@@ -190,6 +268,10 @@ export function createAsanaProvider(
       };
       if (input.notes !== undefined) body.notes = input.notes;
       if (input.dueOn !== undefined) body.due_on = input.dueOn;
+      if (input.assigneeId !== undefined) body.assignee = input.assigneeId;
+      if (input.sectionId !== undefined) {
+        body.memberships = [{ project: projectId, section: input.sectionId }];
+      }
       const res = await request(
         "POST",
         "/tasks",
@@ -209,6 +291,131 @@ export function createAsanaProvider(
         { resource: projectId, target: targetUrl },
       );
       return { webhookId: res.data.gid };
+    },
+
+    async listSections(projectId) {
+      const path = `/projects/${encodeURIComponent(projectId)}/sections`;
+      const query = { opt_fields: "name", limit: PAGE_LIMIT };
+      const sections: TrackerSection[] = [];
+      for await (const s of paginate(path, query, sectionSchema)) {
+        sections.push(toTrackerSection(s));
+      }
+      return sections;
+    },
+
+    async createSection(projectId, name) {
+      const res = await request(
+        "POST",
+        `/projects/${encodeURIComponent(projectId)}/sections`,
+        { opt_fields: "name" },
+        singleSchema(sectionSchema),
+        { name },
+      );
+      return toTrackerSection(res.data);
+    },
+
+    async listTaskDetails(projectId) {
+      const query = {
+        project: projectId,
+        opt_fields: TASK_DETAIL_FIELDS,
+        limit: PAGE_LIMIT,
+      };
+      const tasks: TrackerTaskDetail[] = [];
+      for await (const t of paginate("/tasks", query, taskDetailSchema)) {
+        tasks.push(toTrackerTaskDetail(t, projectId));
+      }
+      return tasks;
+    },
+
+    async getTask(taskId) {
+      const res = await request(
+        "GET",
+        `/tasks/${encodeURIComponent(taskId)}`,
+        { opt_fields: TASK_DETAIL_FIELDS },
+        singleSchema(taskDetailSchema),
+      );
+      return toTrackerTaskDetail(res.data);
+    },
+
+    async moveTask(taskId, sectionId) {
+      await request(
+        "POST",
+        `/sections/${encodeURIComponent(sectionId)}/addTask`,
+        {},
+        emptySchema,
+        { task: taskId },
+      );
+    },
+
+    async updateTask(taskId, patch) {
+      const body: Record<string, unknown> = {};
+      if (patch.name !== undefined) body.name = patch.name;
+      if (patch.notes !== undefined) body.notes = patch.notes;
+      if (patch.assigneeId !== undefined) body.assignee = patch.assigneeId;
+      const res = await request(
+        "PUT",
+        `/tasks/${encodeURIComponent(taskId)}`,
+        { opt_fields: TASK_DETAIL_FIELDS },
+        singleSchema(taskDetailSchema),
+        body,
+      );
+      return toTrackerTaskDetail(res.data);
+    },
+
+    async ensureTag(name) {
+      const cached = tagIds.get(name);
+      if (cached !== undefined) return cached;
+      const ws = encodeURIComponent(opts.workspaceGid);
+      const query = { opt_fields: "name", limit: PAGE_LIMIT };
+      const path = `/workspaces/${ws}/tags`;
+      for await (const t of paginate(path, query, tagSchema)) {
+        if (t.name === name) {
+          tagIds.set(name, t.gid);
+          return t.gid;
+        }
+      }
+      const res = await request(
+        "POST",
+        path,
+        { opt_fields: "name" },
+        singleSchema(tagSchema),
+        { name },
+      );
+      tagIds.set(name, res.data.gid);
+      return res.data.gid;
+    },
+
+    async addTag(taskId, tagId) {
+      await request(
+        "POST",
+        `/tasks/${encodeURIComponent(taskId)}/addTag`,
+        {},
+        emptySchema,
+        { tag: tagId },
+      );
+    },
+
+    async addComment(taskId, text) {
+      await request(
+        "POST",
+        `/tasks/${encodeURIComponent(taskId)}/stories`,
+        {},
+        emptySchema,
+        { text },
+      );
+    },
+
+    async listComments(taskId) {
+      const path = `/tasks/${encodeURIComponent(taskId)}/stories`;
+      const query = { opt_fields: STORY_FIELDS, limit: PAGE_LIMIT };
+      const comments: TrackerComment[] = [];
+      for await (const s of paginate(path, query, storySchema)) {
+        // 変更履歴などのストーリーは捨て、人が書いたコメントだけを返す
+        if (s.resource_subtype === "comment_added") {
+          comments.push(toTrackerComment(s));
+        }
+      }
+      return comments;
     },
   };
 }
