@@ -26,9 +26,9 @@ GitHub の Settings > Developer settings > GitHub Apps で App を作る。
 - Callback URL: `<APP_URL>/api/auth/callback/github`
 - Webhook URL: `<APP_URL>/api/webhooks/github`
 - Webhook secret: 任意の長い文字列を決め、`GITHUB_WEBHOOK_SECRET` に入れる
-- Repository permissions: Contents を Read-only、Metadata を Read-only にする
+- Repository permissions: Contents を Read-only、Metadata を Read-only にする。`repository` イベントの購読には Metadata の Read で足りる
 - Account permissions: Email addresses を Read-only にする
-- Subscribe to events: Push にチェックを入れる (installation / installation_repositories はアプリの既定で届く)
+- Subscribe to events: `Repository` にチェックを入れる。`installation` と `installation_repositories` は GitHub App に既定で届き、購読の設定は無い (チェック欄も無い)。`push` の購読は外してよい
 - App ID を `GITHUB_APP_ID` に入れる
 - Client ID を `GITHUB_APP_CLIENT_ID`、Client secret を `GITHUB_APP_CLIENT_SECRET` に入れる
 - 秘密鍵 (.pem) を生成し、`GITHUB_APP_PRIVATE_KEY` に入れる。改行を `\n` にすれば 1 行で入れてよい
@@ -49,17 +49,17 @@ GitHub の Settings > Developer settings > GitHub Apps で App を作る。
 4. デプロイする
 - Hobby プランの Cron は 1 日 1 回しか動かない
 
-## 7. 各リポジトリに node.yaml を置く
+## 7. Node の登録
 
-1. `examples/node.yaml` を、Node にしたいリポジトリのルートにコピーする
-2. 値を書き換える。`id` は英小文字・数字・ハイフンで、リポジトリ内で一意にする
-3. 1 行目の `# yaml-language-server: $schema=...` は、エディタの補完と検証を有効にする行。`<your-app>` を自分のアプリの URL に置き換えると、`/schema/node.json` から補完が効く
-4. コミットして push すると、GitHub App の Webhook で取り込まれる
+1. アプリにログインし、Node 画面 (`/nodes`) を開く
+2. 「Node の候補」から、登録したいリポジトリの「登録する」を押し、初期値を直して登録する。候補に出ないリポジトリは、GitHub App のインストール対象に入っているかを確かめる。リポジトリを持たない Node は「リポジトリ無しで作る」から作る
+3. 登録した Node は、一覧の「編集」からいつでも直せる
+4. リポジトリの名前と、届くかどうかは、GitHub の Webhook と毎日の Cron で自動で更新される
 
 ## 8. 困ったとき
 
-- 取り込みエラー: ダッシュボードの Node の概要タブに出る。node.yaml の検証に失敗した場合は、そのメッセージを見て直す
-- 手動で全部取り込み直す: `curl -H "Authorization: Bearer $CRON_SECRET" <APP_URL>/api/cron/import`
+- Node に「届かない」と出るとき: 一覧 (`/nodes`) のリポジトリ欄に出る印。GitHub App のインストールからリポジトリが外れていないかを確かめ、対象に戻す。次の Webhook か毎日の Cron で戻る
+- 手動で全部のつながりを更新し直す: `curl -H "Authorization: Bearer $CRON_SECRET" <APP_URL>/api/cron/import`
 - Asana の Webhook を作り直す: `sync_state` テーブルの `asana:webhook-secret:<project gid>` の行を消してから、Node をつなぎ直す
 
 ## 9. MCP の口
@@ -108,7 +108,7 @@ claude mcp add --scope user --transport http pieces http://127.0.0.1:3000/api/mc
 
 - 権限は `read` (読み取り)・`board` (看板の書き込み)・`loop` (開発ループの制御) に分ける。`read` は `list_nodes`・`get_project`・`get_board`・`is_stopped`、`board` は `create_item`・`move_item`・`update_item`・`comment_item`・`request_owner`、`loop` は `next_project`・`report_run`・`pause`
 - ホストではトークンごとに、全体 1200 回/時、書き込み 300 回/時を上限とする。UTC の正時ごとの固定枠で数える
-- ツールの実行結果や拒否理由は監査ログに残す。90 日を過ぎたログは取り込み Cron の実行時に削除する
+- ツールの実行結果や拒否理由は監査ログに残す。90 日を過ぎたログは毎日の Cron (つながりの更新) の実行時に削除する
 - ホストでは IP 許可リストが空なら全部拒否する。許可された IP でも有効なトークンが要る
 - ローカルでは Host と Origin (ある場合) がループバックのホスト名かを確かめる
 

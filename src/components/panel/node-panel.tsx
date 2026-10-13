@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -21,6 +22,7 @@ type PanelDetail = {
     tags: string[];
     links: Record<string, string>;
     sourceRepo: string | null;
+    repoReachable: boolean;
     updatedAt: string;
   };
   detail: { path: string; markdown: string | null };
@@ -280,11 +282,31 @@ function TabBody({
             <div>
               <dt className="inline">リポジトリ: </dt>
               <dd className="inline">{data.node.sourceRepo ?? "なし"}</dd>
+              {data.node.sourceRepo !== null && !data.node.repoReachable && (
+                <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                  リポジトリに届きません
+                </span>
+              )}
             </div>
           </dl>
+          <p>
+            <Link
+              href={`/nodes/${encodeURIComponent(data.node.id)}/edit`}
+              className="text-indigo-300 underline"
+            >
+              編集
+            </Link>
+          </p>
         </div>
       );
     case "詳細":
+      if (data.node.sourceRepo === null) {
+        return (
+          <p className="text-sm text-zinc-400">
+            リポジトリの無い Node には詳細がありません
+          </p>
+        );
+      }
       return data.detail.markdown === null ? (
         <p className="text-sm text-zinc-400">
           詳細を読み込めませんでした ({data.detail.path})

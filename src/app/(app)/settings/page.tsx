@@ -3,6 +3,7 @@ import { connection } from "next/server";
 
 import { DevloopSection } from "@/components/settings/devloop-section";
 import { IpSection } from "@/components/settings/ip-section";
+import { NodeTransferSection } from "@/components/settings/node-transfer-section";
 import { TokenSection } from "@/components/settings/token-section";
 import { getDb } from "@/db/client";
 import { createControlService } from "@/lib/devloop/control";
@@ -50,6 +51,11 @@ export default async function SettingsPage({
       <section aria-labelledby="devloop-heading" className="space-y-4">
         <h2 id="devloop-heading" className="text-lg font-semibold">devloop</h2>
         <DevloopSection globalStop={globalStop} dailyLimit={dailyLimit} />
+      </section>
+
+      <section aria-labelledby="node-transfer-heading" className="space-y-4">
+        <h2 id="node-transfer-heading" className="text-lg font-semibold">Node の書き出しと読み込み</h2>
+        <NodeTransferSection />
       </section>
 
       <section aria-labelledby="tokens-heading" className="space-y-4">
