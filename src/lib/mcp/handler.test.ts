@@ -135,8 +135,7 @@ describe("handleMcpRequest", () => {
       summary: `${title} の要約`,
       status: "active",
       detailPath: `nodes/${id}.md`,
-      sourceRepo: "owner/repo",
-      sourceSha: "abc123",
+      sourceRepo: `owner/${id}`,
     });
   }
 
@@ -230,7 +229,7 @@ describe("handleMcpRequest", () => {
           title: "アルファ",
           summary: "アルファ の要約",
           status: "active",
-          sourceRepo: "owner/repo",
+          sourceRepo: "owner/alpha",
         },
         {
           id: "zeta",
@@ -238,7 +237,7 @@ describe("handleMcpRequest", () => {
           title: "ゼータ",
           summary: "ゼータ の要約",
           status: "active",
-          sourceRepo: "owner/repo",
+          sourceRepo: "owner/zeta",
         },
       ]);
 
@@ -323,7 +322,7 @@ describe("handleMcpRequest", () => {
         title: "アルファ",
         summary: "アルファ の要約",
         status: "active",
-        sourceRepo: "owner/repo",
+        sourceRepo: "owner/alpha",
         asana: { linked: true, url: "https://app.asana.com/0/proj-alpha" },
         taskCounts: { open: 2, completed: 1 },
         devloop: {

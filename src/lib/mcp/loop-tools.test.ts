@@ -72,7 +72,6 @@ function makeNode(id: string) {
     status: "active",
     detailPath: `nodes/${id}.md`,
     sourceRepo: `owner/${id}`,
-    sourceSha: "abc123",
   };
 }
 

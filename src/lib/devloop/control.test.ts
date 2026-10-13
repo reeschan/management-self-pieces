@@ -304,7 +304,6 @@ describe("createControlService", () => {
       status: "active",
       detailPath: `docs/${id}.md`,
       sourceRepo: `owner/${id}`,
-      sourceSha: "abc",
     });
   }
 

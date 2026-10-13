@@ -381,7 +381,15 @@ export function createControlService(deps: { db: AppDb; now?: () => Date }) {
       })
       .from(devProjects)
       .innerJoin(nodes, eq(nodes.id, devProjects.nodeId))
-      .where(and(eq(devProjects.enabled, true), eq(devProjects.paused, false)));
+      .where(
+        and(
+          eq(devProjects.enabled, true),
+          eq(devProjects.paused, false),
+          // リポジトリが無い・届かない Node は回さない
+          isNotNull(nodes.sourceRepo),
+          eq(nodes.repoReachable, true),
+        ),
+      );
     if (projects.length === 0) return null;
 
     const nodeIds = projects.map((p) => p.nodeId);
@@ -419,10 +427,16 @@ export function createControlService(deps: { db: AppDb; now?: () => Date }) {
       }
     }
 
-    const candidates: ProjectCandidate[] = projects.map((p) => ({
-      ...p,
-      openIteration: openIteration.get(p.nodeId) ?? null,
-    }));
+    const candidates: ProjectCandidate[] = [];
+    for (const p of projects) {
+      // 条件で絞っているので null は来ない (型を狭めるための確認)
+      if (p.sourceRepo === null) continue;
+      candidates.push({
+        ...p,
+        sourceRepo: p.sourceRepo,
+        openIteration: openIteration.get(p.nodeId) ?? null,
+      });
+    }
     const pick = pickNextProject(
       candidates,
       runsToday,

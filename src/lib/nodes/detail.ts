@@ -15,9 +15,10 @@ export type NodeDetail = {
     tags: string[];
     links: Record<string, string>;
     sourceRepo: string | null;
+    repoReachable: boolean;
     updatedAt: Date;
   };
-  detail: { path: string; markdown: string | null };
+  detail: { path: string | null; markdown: string | null };
   diagrams: {
     path: string;
     title: string | null;
@@ -90,7 +91,9 @@ export async function loadNodeDetail(id: string): Promise<NodeDetail | null> {
       })
       .from(taskCache)
       .where(eq(taskCache.nodeId, id)),
-    readMarkdown(row.sourceRepo, row.detailPath),
+    row.sourceRepo !== null && row.detailPath !== null && row.repoReachable
+      ? readMarkdown(row.sourceRepo, row.detailPath)
+      : Promise.resolve(null),
   ]);
 
   const diagrams: NodeDetail["diagrams"] = [];
@@ -116,6 +119,7 @@ export async function loadNodeDetail(id: string): Promise<NodeDetail | null> {
       tags: row.tags,
       links: row.links,
       sourceRepo: row.sourceRepo,
+      repoReachable: row.repoReachable,
       updatedAt: row.updatedAt,
     },
     detail: { path: row.detailPath, markdown },
