@@ -20,7 +20,7 @@ type PanelDetail = {
     status: string;
     tags: string[];
     links: Record<string, string>;
-    sourceRepo: string;
+    sourceRepo: string | null;
     updatedAt: string;
   };
   detail: { path: string; markdown: string | null };
@@ -32,7 +32,6 @@ type PanelDetail = {
   }[];
   asana: { projectId: string; url: string | null } | null;
   tasks: PanelTask[];
-  importErrors: { path: string; message: string }[];
 };
 
 type Result =
@@ -260,18 +259,6 @@ function TabBody({
     case "概要":
       return (
         <div className="space-y-3 text-sm">
-          {data.importErrors.length > 0 && (
-            <div className="rounded border border-amber-600 bg-amber-950/40 p-2 text-amber-200">
-              <p className="font-semibold">取り込みの警告</p>
-              <ul className="mt-1 list-disc pl-4 text-xs">
-                {data.importErrors.map((e) => (
-                  <li key={`${e.path}:${e.message}`}>
-                    {e.path}: {e.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <p className="whitespace-pre-wrap">{data.node.summary}</p>
           {data.node.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1">
@@ -291,8 +278,8 @@ function TabBody({
               <dd className="inline">{data.node.updatedAt}</dd>
             </div>
             <div>
-              <dt className="inline">取り込み元: </dt>
-              <dd className="inline">{data.node.sourceRepo}</dd>
+              <dt className="inline">リポジトリ: </dt>
+              <dd className="inline">{data.node.sourceRepo ?? "なし"}</dd>
             </div>
           </dl>
         </div>
@@ -310,7 +297,7 @@ function TabBody({
     case "アーキ図":
       return data.diagrams.length === 0 ? (
         <p className="text-sm text-zinc-400">
-          node.yaml の diagrams に図を追加すると表示されます
+          Node の編集画面で図のパスを足すと表示されます
         </p>
       ) : (
         <div className="space-y-4">

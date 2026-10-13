@@ -1,7 +1,6 @@
 import { getDb } from "@/db/client";
 import { cronEnv } from "@/lib/env";
 import { isAuthorizedCron } from "@/lib/github/webhook";
-import { runFullImport } from "@/lib/import/run";
 import { purgeAudit } from "@/lib/mcp/audit";
 import { purgeRateLimits } from "@/lib/mcp/rate-limit";
 
@@ -34,15 +33,7 @@ export async function GET(req: Request) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let summary: Awaited<ReturnType<typeof runFullImport>>;
-  try {
-    summary = await runFullImport();
-  } catch (error) {
-    console.error("[cron:import] import failed", error);
-    return Response.json({ error: "import failed" }, { status: 500 });
-  }
-
-  // 取り込みの後で、90 日を過ぎた監査ログと古い回数の行を消す
+  // 90 日を過ぎた監査ログと古い回数の行を消す
   const now = new Date();
   const auditPurged = await purgeSafely("audit", () =>
     purgeAudit(getDb(), now),
@@ -51,5 +42,5 @@ export async function GET(req: Request) {
     purgeRateLimits(getDb(), now),
   );
 
-  return Response.json({ ...summary, auditPurged, rateLimitsPurged });
+  return Response.json({ auditPurged, rateLimitsPurged });
 }
