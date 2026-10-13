@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
@@ -24,6 +25,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="flex items-center justify-end gap-3 border-b border-zinc-200 px-4 py-2 text-sm dark:border-zinc-800">
+        <nav aria-label="メインナビゲーション" className="mr-auto flex gap-3">
+          <Link href="/" className="hover:underline">
+            ダッシュボード
+          </Link>
+          <Link href="/settings" className="hover:underline">
+            設定
+          </Link>
+        </nav>
         <span className="text-zinc-600 dark:text-zinc-400">
           {session.user.email}
         </span>
