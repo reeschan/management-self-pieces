@@ -1,0 +1,102 @@
+# management-self-pieces のアーキテクチャ図
+# __MONO__ は単色ロゴの色。render.py がライト用 (000000) とダーク用 (ffffff) に置き換えて 2 枚描く
+# 生成: python ~/.claude/skills/arch-diagram/versions/v1.1/scripts/render.py docs/architecture/architecture.d2
+direction: right
+
+vars: {
+  d2-config: {
+    layout-engine: elk
+    pad: 40
+  }
+}
+
+classes: {
+  svc: {
+    shape: rectangle
+    style: {
+      border-radius: 12
+      font-size: 15
+    }
+  }
+  ext: {
+    shape: image
+    width: 64
+    height: 64
+    label.near: outside-bottom-center
+  }
+  zone: {
+    style.border-radius: 16
+  }
+  saas: {
+    style: {
+      border-radius: 16
+      stroke-dash: 3
+    }
+  }
+}
+
+owner: 持ち主 {
+  class: ext
+  icon: https://icons.terrastruct.com/essentials%2F005-programmer.svg
+}
+
+client: ブラウザ {
+  class: zone
+  icon: https://icons.terrastruct.com/tech%2Fbrowser-2.svg
+
+  web: "3D ダッシュボード\nreact-force-graph-3d" {
+    class: svc
+    icon: https://cdn.simpleicons.org/threedotjs/__MONO__
+  }
+}
+
+vercel: Vercel {
+  class: zone
+  icon: https://cdn.simpleicons.org/vercel/__MONO__
+
+  app: "画面・/api/nodes\nNext.js App Router" {
+    class: svc
+    icon: https://cdn.simpleicons.org/nextdotjs/__MONO__
+  }
+  auth: "/api/auth\nBetter Auth (許可リスト)" {
+    class: svc
+  }
+  sync: "取り込み・同期\n/api/webhooks・/api/cron (1 日 1 回)" {
+    class: svc
+  }
+}
+
+db: "Neon (Postgres)\n表示用の一時保存" {
+  class: ext
+  icon: https://cdn.simpleicons.org/neon
+}
+
+external: 外部サービス (データの正) {
+  class: saas
+  direction: down
+
+  github: "GitHub\nnode.yaml・GitHub App" {
+    class: ext
+    icon: https://cdn.simpleicons.org/github/__MONO__
+  }
+  asana: "Asana\nチケット" {
+    class: ext
+    icon: https://cdn.simpleicons.org/asana
+  }
+  google: "Google\nOAuth" {
+    class: ext
+    icon: https://cdn.simpleicons.org/google
+  }
+}
+
+owner -> client.web: 眺める・操作
+owner -> external.github: node.yaml を push
+client.web -> vercel.app: Node・チケット
+client.web -> vercel.auth: ログイン
+vercel.auth -> external.google: OAuth
+vercel.auth -> external.github: OAuth
+vercel.app -> external.asana: プロジェクト・タスク (PAT)
+vercel.app -> db
+vercel.sync -> db: 反映
+external.github -> vercel.sync: push 通知・node.yaml {style.stroke-dash: 4}
+external.asana -> vercel.sync: タスク更新 {style.stroke-dash: 4}
