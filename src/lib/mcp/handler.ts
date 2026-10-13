@@ -2,16 +2,40 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 
 import type { AppDb } from "@/db/types";
+import { createBoardService } from "@/lib/devloop/board";
+import { createControlService } from "@/lib/devloop/control";
+import type { TrackerProvider } from "@/lib/tracker/types";
 
 import { gateRequest } from "./gate";
-import { registerTools } from "./tools";
+import { type DevloopServices, registerTools } from "./tools";
 
 export type McpDeps = {
   db: AppDb;
   mode: "local" | "host";
   clientIp: string | null;
   now: () => Date;
+  /** Asana の Tracker を作る。看板のツールが呼ばれたときだけ呼ぶ (環境変数が無ければ例外) */
+  tracker: () => TrackerProvider;
+  /** 持ち主の Asana のユーザー gid (ASANA_OWNER_GID)。未設定なら null */
+  ownerAssigneeId: string | null;
 };
+
+/** devloop のサービスを、最初に呼ばれたときに 1 回だけ作る関数を返す。 */
+function lazyDevloop(deps: McpDeps): () => DevloopServices {
+  let services: DevloopServices | null = null;
+  return () => {
+    services ??= {
+      board: createBoardService({
+        db: deps.db,
+        tracker: deps.tracker(),
+        ownerAssigneeId: deps.ownerAssigneeId ?? undefined,
+        now: deps.now,
+      }),
+      control: createControlService({ db: deps.db, now: deps.now }),
+    };
+    return services;
+  };
+}
 
 /** 例外のときの固定の応答。例外の中身は返さない。 */
 function internalErrorResponse(): Response {
@@ -59,6 +83,7 @@ export async function handleMcpRequest(req: Request, deps: McpDeps): Promise<Res
       tokenId: gate.tokenId,
       scopes: gate.scopes,
       now: deps.now,
+      devloop: lazyDevloop(deps),
     });
     await server.connect(transport);
     return await transport.handleRequest(req);

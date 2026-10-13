@@ -140,6 +140,15 @@ export function asanaEnv(source: EnvSource = process.env): {
   };
 }
 
+/**
+ * 持ち主の Asana のユーザー gid (ASANA_OWNER_GID)。「Owner 判断」の担当と、Owner のコメントの見分けに使う。
+ * 任意なので、未設定か空なら null を返す (例外は投げない)。
+ */
+export function asanaOwnerGid(source: EnvSource = process.env): string | null {
+  const value = source.ASANA_OWNER_GID?.trim();
+  return value ? value : null;
+}
+
 const cronSchema = z.object({
   CRON_SECRET: z.string().min(16),
 });
