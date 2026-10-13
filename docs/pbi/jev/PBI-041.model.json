@@ -1,0 +1,1 @@
+{"tier": "opus", "route": [{"runner": "agy", "model": "claude-opus-5-5-high", "effort": null}, {"runner": "agent", "model": "opus", "effort": null}], "scores": {"novelty": 2, "coupling": 2, "ambiguity": 0}, "reasons": ["決定: opus。coupling=2", "novelty=2（confidence 0.97）", "coupling=2（confidence 1.00）", "ambiguity=0（confidence 0.76）"]}
