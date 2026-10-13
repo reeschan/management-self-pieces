@@ -18,6 +18,7 @@
 - Asana 連携: Node と Asana プロジェクトを 1 対 1 で対応づけ、更新は Webhook で受け取る
 - GitHub からの自動取り込み: GitHub App の push Webhook で、リポジトリの node.yaml を読み直す
 - MCP の口: Claude Code から Node と看板を読む (`/api/mcp`)。エージェント用トークンと IP 許可リストで守る
+- devloop: AI のチームが Node の開発を少しずつ進める。看板は Asana、制御と記録はアプリ
 
 ## ローカルでの起動
 

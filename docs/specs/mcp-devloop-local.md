@@ -156,48 +156,56 @@
 
 ### M2 devloop のアプリ側
 
-- **ツールの入出力**: devloop リポジトリのスキル (SKILL.md・phases・agents) が呼んでいる形に合わせる。
-  - `next_project`
+- **原則** (2026-10-13 改訂): 失われた実装を `.next` のソースマップから取り出した (リポジトリの外の `management-self-pieces-recovered-20261012/`)。devloop の PC 側のスキルはこの実装を相手に作られているので、その振る舞いを正とする。そこに M1 の守り (権限・入力の上限・Node との照合・監査ログ・一般的なエラー文言) を足す。
+- **ツールの入出力**:
+  - `next_project` (loop)
     - 入力: なし。
-    - 出力: null、または { Node の id、`sourceRepo`、自律度、上限 (`maxPbisPerIteration`・`sprintLimit`)、進行中のイテレーション }。
-    - 選ばれた Node は、選ばれたことを記録する (最後の実行の時刻の比較に使う)。
-  - `get_project`
+    - 出力: null、または { `nodeId`、`sourceRepo`、自律度、`maxPbisPerIteration`、`sprintLimit`、進行中のイテレーション }。
+    - 選ばれた Node は、選ばれた時刻を記録する。
+  - `get_project` (read)
     - 入力: `node_id`。
-    - 出力: `sourceRepo`、Asana との接続状態と URL、自律度、上限、有効/無効、一時停止と理由、最後の実行、列ごとの件数、未回答の Owner 判断の件数。
-  - `get_board`
+    - 出力: `sourceRepo`、Asana との接続状態と URL、設定 (有効/無効・自律度・上限)、一時停止と理由、最後の実行、列ごとの件数、未回答の Owner 判断の件数。
+  - `get_board` (read)
     - 入力: `node_id`、`sections?`。
-    - 出力: 項目の配列 { id、名前、notes (meta の印は除く)、タグ、meta、列、Owner のコメント }。
-  - `create_item`
-    - 入力: `node_id`、`section` (Inbox か Backlog)、`name`、`notes`、`type`、`origin` (pm か biz)、`meta`。
+    - 出力: 列ごとにまとめた項目 { id、名前、notes の本文 (meta の印は除く)、タグ、meta、meta の読み取りエラー、URL、完了、Owner のコメント }。
+  - `create_item` (board)
+    - 入力: `node_id`、`section` (Inbox か Backlog)、`name`、`notes`、`type`、`origin` (pm・biz・tl)、`meta`。owner は画面からだけ。
     - 出力: 項目の id。
-    - `origin` はタグ `from:<origin>` として付ける。
-  - `move_item`: 入力は `node_id`、`item_id`、`section`。
-  - `update_item`: 入力は `node_id`、`item_id`、`meta` (丸ごと置き換える)。
-  - `comment_item`: 入力は `node_id`、`item_id`、`text`。
-  - `request_owner`
+    - `origin` はタグ `from:<origin>`、`type` はタグ `<type>` として付ける。meta の id が無ければ種類ごとの連番を振る。
+  - `move_item` (board): 入力は `node_id`、`item_id`、`section`。
+  - `update_item` (board): 入力は `item_id`、`node_id?`、`meta` (丸ごと置き換える)。
+  - `comment_item` (board): 入力は `item_id`、`node_id?`、`text`。
+  - `update_item` と `comment_item` は、項目が属する Node を写しから引く。`node_id` が渡されたら一致を確かめる。写しに無い項目は断る。
+  - `request_owner` (board)
     - 入力: `node_id`、`title`、`reason`、`item_id?`。
-    - 「Owner 判断」の列に項目を作る。元の項目があれば notes で紐づける。
-  - `report_run`
-    - 入力: `node_id`、`run_id`、`phase`、`summary`、`status?`、`iteration?`。
+    - 「Owner 判断」の列に、担当を `ASANA_OWNER_GID` の人にして項目を作る。元の項目があれば notes で紐づけ、元の項目も「Owner 判断」へ移してコメントを付ける。
+  - `report_run` (loop)
+    - 入力: `node_id`、`run_id?` (開始で省いたらアプリが振る)、`phase`、`summary`、`status?`、`iteration?` (番号)、`tokens?`、`iteration_manifest?` (iteration.yaml と同じ形)。
     - status が無ければ開始、`running` はハートビート、ほかは終了として扱う。
-  - `is_stopped`: 入力は `node_id`。Node の一時停止か全体停止なら true を返す。
-  - `pause`: 入力は `node_id`、`reason`。
+    - `iteration_manifest` が届いたら検証して `iterations` に upsert する。知らないキーは捨て、形が不正ならエラーにする。
+  - `is_stopped` (read): 入力は `node_id`。全体停止、Node が無効、Node が一時停止、のどれかなら true を返す。
+  - `pause` (loop): 入力は `node_id`、`reason`。
 - **看板** (ADR 0002):
-  - 列は Asana のセクション (Inbox・Backlog・Sprint・In Progress・Biz Review・Done・Rejected・Owner 判断)。「Asana につなぐ」で、足りないセクションを作る。
-  - meta は notes の末尾の `<!-- devloop ... -->` に JSON で埋め込む。印が無いか壊れていれば、meta は空として扱う。
+  - 列は Asana のセクション (Inbox・Backlog・Sprint・In Progress・Biz Review・Done・Owner 判断・Rejected)。「Asana につなぐ」で、足りないセクションを作る。
+  - meta は notes の末尾の `<!-- devloop ... -->` に **YAML** で埋め込む (復元した実装と同じ)。印が無いか壊れていれば、meta は null とし、読み取りエラーを添える。
+  - 上限: Inbox は 15 件まで (owner の出どころは除く)、Biz の提案は 1 イテレーションに 3 件まで、Sprint は Node の `sprintLimit` まで (移すときは、その項目自身を数えない)。Done に移しても完了にはしない。
   - Owner のコメントは、`ASANA_OWNER_GID` の人が書いたものか、`from:owner` の印付きのもの。
-- **Tracker の拡張**: 既存の TrackerProvider に、看板に要る操作を足す。セクションの一覧と作成、タスクのセクション間の移動、notes の更新、コメントの一覧と作成、タグ付け。Asana の実装は、既存と同じく `fetch` を差し替えられる形にする。
-- **写し**: 既存のタスクの写しに、列・タグ・meta を足す。Asana の Webhook (既存) で読み直す。ツールで書いたときは、その場で読み直す。
-- **テーブル** (以前の PBI-023 の形を作り直す):
-  - Node ごとの devloop の設定と状態: 有効、自律度 (0〜3 の CHECK)、`maxPbisPerIteration`、`sprintLimit`、一時停止と理由、最後に選ばれた時刻、最後の実行の時刻。
-  - 全体の制御: 全体停止と理由、1 日あたりの上限。読めない値は停止扱い。
-  - 実行: run_id、Node、フェーズ、状態、要約、開始・最後のハートビート・終了の時刻。
-  - イテレーション: Node と番号の組で一意。中身はイテレーションの記録の形。
-- **制御**: 判定は純粋な関数に切り出す (以前の設計と同じ)。
-  - 次の Node の選び方: 有効で一時停止していない Node のうち、最後の実行が一番古いもの。
+- **Tracker の拡張**: 復元した Asana の実装の操作を戻す (セクションの一覧と作成、詳細付きのタスク一覧、移動、更新、タグ、コメント)。足りなかったコメントの一覧 (作成者付き) を足す。既存と同じく `fetch` を差し替えられる形にする。
+- **写し**: タスクの写しに、列・タグ・meta を足す。Asana の Webhook と、ツールで書いた直後の読み直しで最新に保つ (読み直しで列・タグ・meta を既定値に戻さない)。
+- **テーブル** (復元した形をもとにする):
+  - `dev_projects`: 有効 (既定 false)、一時停止と理由 (既定は一時停止)、自律度 (0〜3 の CHECK、既定 1)、`maxIterationsPerDay` (既定 1)、`maxPbisPerIteration` (既定 10)、`sprintLimit` (既定 6)、最後に選ばれた時刻、最後の実行の時刻。
+  - `devloop_control`: key と value。全体停止 (`{on, reason}` の JSON) と 1 日あたりの全体の上限 (既定 1)。読めない値は停止扱い。
+  - `devloop_runs`: run_id、Node、イテレーション番号、フェーズ、状態、要約、tokens、開始・最後のハートビート・終了の時刻。
+  - `iterations`: Node と番号の組で一意。中身はイテレーションの記録の形。`sourceSha` は null を許す。
+- **制御**: 判定は純粋な関数に切り出す (復元した実装と同じ)。
+  - 次の Node の選び方: 止まっていない Node のうち、全体の今日の件数が全体の上限未満で、その Node の今日の件数が `maxIterationsPerDay` 未満のもの。進行中のイテレーションがある Node を先にし、その中で最後に選ばれた時刻 (無ければ最後の実行の時刻) が古い順。
   - 今日の件数: release のフェーズで succeeded の実行を、Asia/Tokyo の日付で数える。
   - 自動停止: 同じ Node の終了した実行の直近 3 件がすべて failed なら止める。
+- **データの読み書き**: 看板と制御のサービスは、`AppDb` と Tracker を引数で受け取る。`db.batch` と `db.transaction` は使わない。
 - **画面**: Node のパネルに「看板」「開発ループ」「イテレーション」のタブを足す。全 Node の Owner 判断の受け箱を置き、ダッシュボードのヘッダーに件数のバッジを出す。設定画面に全体停止と 1 日の上限を足す。
+- **devloop リポジトリ側の追記** (例外として、この作業に含める):
+  - `SKILL.md`: フェーズを進めたとき、`report_run` に `iteration_manifest` を付けて送る。
+  - `install.ps1`: MCP の登録で、ヘッダーを `${PIECES_AGENT_TOKEN}` のまま渡す (トークンを設定ファイルに展開しない)。
 
 ### M3 ローカル機能
 
