@@ -139,6 +139,19 @@ describe("handleMcpRequest", () => {
     });
   }
 
+  /** リポジトリの無い Node (sourceRepo が null) */
+  async function insertNodeWithoutRepo(id: string, title: string) {
+    await testDb.db.insert(nodes).values({
+      id,
+      kind: "project",
+      title,
+      summary: `${title} の要約`,
+      status: "active",
+      detailPath: null,
+      sourceRepo: null,
+    });
+  }
+
   async function insertTask(nodeId: string, externalId: string, name: string, completed: boolean) {
     await testDb.db.insert(taskCache).values({
       provider: "asana",
@@ -256,6 +269,35 @@ describe("handleMcpRequest", () => {
       expect(rows[0].createdAt).toEqual(now);
     });
 
+    it("list_nodes はリポジトリの無い Node で sourceRepo: null を返す", async () => {
+      await insertNode("alpha", "アルファ");
+      await insertNodeWithoutRepo("beta", "ベータ");
+      const { headers } = await hostAuth(["read"]);
+
+      const { text, isError } = await toolText(
+        await handleMcpRequest(callTool("list_nodes", {}, headers), hostDeps()),
+      );
+      expect(isError).toBe(false);
+      expect(JSON.parse(text)).toEqual([
+        {
+          id: "alpha",
+          kind: "project",
+          title: "アルファ",
+          summary: "アルファ の要約",
+          status: "active",
+          sourceRepo: "owner/alpha",
+        },
+        {
+          id: "beta",
+          kind: "project",
+          title: "ベータ",
+          summary: "ベータ の要約",
+          status: "active",
+          sourceRepo: null,
+        },
+      ]);
+    });
+
     it('["loop"] だけのトークンで list_nodes を呼ぶと forbidden で、Node は返さない', async () => {
       await insertNode("alpha", "アルファ");
       const { headers, tokenId } = await hostAuth(["loop"]);
@@ -295,6 +337,20 @@ describe("handleMcpRequest", () => {
         argsSummary: '{"node_id":"missing"}',
         outcome: "tool_error",
         reason: "not_found",
+      });
+    });
+
+    it("get_project はリポジトリの無い Node で sourceRepo: null を返す", async () => {
+      await insertNodeWithoutRepo("beta", "ベータ");
+      const { text, isError } = await toolText(
+        await handleMcpRequest(callTool("get_project", { node_id: "beta" }, LOCAL_HEADERS), localDeps()),
+      );
+      expect(isError).toBe(false);
+      expect(JSON.parse(text)).toMatchObject({
+        id: "beta",
+        kind: "project",
+        title: "ベータ",
+        sourceRepo: null,
       });
     });
 
