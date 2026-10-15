@@ -1,7 +1,8 @@
+opencode: このセッションは `--variant max` (推論の強さ最大) で起動する (2026-10-14 ユーザー指示。v11 の本文には無い上書き)
 Codex: 利用上限 (2026-10-14 03:51 まで)。以降の PBI では codex を飛ばす
 opencode: fnm のグローバル (/c/Users/owner/AppData/Roaming/fnm/node-versions/v26.8.1/installation) にある。PATH に足して使う (v1.19.0)
 --skip 候補 (v11): agy (headless でコマンドが自動拒否される)。opencode は v10 以降 fnm の Node のグローバルを PATH に足して探す (runners.md)。Codex は 2026-10-14 03:51 まで上限だった
-Antigravity: 使用不可 (2026-10-13 22:5x。headless でコマンドが自動拒否され、ファイルだけの PBI でも作業が進まない。許可ルールはリポジトリ外なので足していない)。このセッションの残りの PBI では agy を飛ばす
+Antigravity: 使用不可 (--skip agy。2026-10-13 22:5x。headless でコマンドが自動拒否され、ファイルだけの PBI でも作業が進まない。許可ルールはリポジトリ外なので足していない)。このセッションの残りの PBI では agy を飛ばす
 
 # STATUS
 
@@ -57,3 +58,19 @@ Antigravity: 使用不可 (2026-10-13 22:5x。headless でコマンドが自動�
 | PBI-075 | agent opus（opus 相当） | 完了 | 0/2 | 0/1 | 0/2 | route 先頭の agy は使用不可のため agent。一発合格。検証コマンド 3・4 の不具合 (オーケストレーターの誤り) を直した |
 | PBI-076 | agent haiku max（haiku 相当） | 完了 | 0/2 | 0/1 | 0/2 | opencode と Codex が使えないため agent。一発合格 |
 | PBI-077 | opencode deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | v11 で起票。承認済み (2026-10-14「作業の続きどうぞ」)。一発合格 (opencode を fnm のグローバルから起動) |
+| PBI-080 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。検証コマンド 2 の不備 (webhook.ts に一致) を修正 |
+| PBI-081 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max) |
+| PBI-082 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (deep で diff を全部読んだ)。本番に 0004 を当てる前に source_repo の重複行が無いか確かめる (UNIQUE 追加で失敗するため) |
+| PBI-083 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max) |
+| PBI-084 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。外部の openapi.json を curl しようとして拒否 (作業に影響なし) |
+| PBI-085 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (deep で全部読んだ)。relations.to_id に FK が無く、remove で向いた関係を明示的に消す (PBI の cascade の前提は誤り)。create/update は非トランザクション (仕様どおり) |
+| PBI-086 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max、deep で全部読んだ)。markUnreachable は既に届かない Node も数に含める (軽微、ログ用の数) |
+| PBI-087 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max、deep で全部読んだ)。input.ts の fieldsShape を export (許した範囲)。注意: exportNodes は ExportFile.parse で検証するので、決まりに合わない古い行があると書き出し全体が失敗する。ファイル内の自分への関係は検証しない |
+| PBI-088 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。repoId の無い Node は名前変更の Webhook で一致しない (Cron の refreshAll で直る) |
+| PBI-089 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。README の seed の説明は PBI-094 で直す |
+| PBI-090 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max) |
+| PBI-091 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 1/2 | 0/1 | 0/2 | 差し戻し 1 回で合格 (variant max)。差し戻し 1: 編集の保存で文字列でない meta が文字列になる (opus のレビューで発見)。本番でエラーの理由が出ない件は PBI-095 へ |
+| PBI-092 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。typecheck・build は 091 と重なって落ち、091 の終了後に取り直して pass。想定外の例外を console.error に出さない (PBI に指示なし) |
+| PBI-093 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。軽微: パネルの detail.path が string のままで、detailPath の無い Node では「(null)」と出る |
+| PBI-094 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。検証コマンド 2 が iterations の source_sha に当たる不備をオーケストレーターが直した。examples/node.yaml が参照されずに残る |
+| PBI-095 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。Node の操作のエラーを戻り値で返す |
