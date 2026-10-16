@@ -1,3 +1,6 @@
+作業キー (PBI-096〜): management-self-pieces:feat/node-in-app:W-001 / 作業空間: project:work.management-self-pieces.feat-node-in-app.W-001
+外した実行先: agy (headless でコマンドが自動拒否される)
+
 opencode: このセッションは `--variant max` (推論の強さ最大) で起動する (2026-10-14 ユーザー指示。v11 の本文には無い上書き)
 Codex: 利用上限 (2026-10-14 03:51 まで)。以降の PBI では codex を飛ばす
 opencode: fnm のグローバル (/c/Users/owner/AppData/Roaming/fnm/node-versions/v26.8.1/installation) にある。PATH に足して使う (v1.19.0)
@@ -74,3 +77,7 @@ Antigravity: 使用不可 (--skip agy。2026-10-13 22:5x。headless でコマン
 | PBI-093 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。軽微: パネルの detail.path が string のままで、detailPath の無い Node では「(null)」と出る |
 | PBI-094 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。検証コマンド 2 が iterations の source_sha に当たる不備をオーケストレーターが直した。examples/node.yaml が参照されずに残る |
 | PBI-095 | opencode opencode-go/deepseek-v4.1-flash（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。Node の操作のエラーを戻り値で返す |
+| PBI-096 | opencode opencode-go/deepseek-v4.1-flash max（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。devloop のアクション + 看板・Owner 判断の画面 |
+| PBI-097 | opencode opencode-go/deepseek-v4.1-flash max（haiku 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max)。build も pass |
+| PBI-098 | agent sonnet high（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (deep で diff を全部読んだ)。トークンの scopes の重複も action で弾く |
+| PBI-099 | opencode opencode-go/deepseek-v4.1-flash max（sonnet 相当） | 完了 | 0/2 | 0/1 | 0/2 | 一発合格 (variant max) |
