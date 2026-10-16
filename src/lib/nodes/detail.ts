@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
-import { externalRefs, importErrors, nodes, taskCache } from "@/db/schema";
+import { externalRefs, nodes, taskCache } from "@/db/schema";
 import { createRepoSource } from "@/lib/github/app";
 import { assetKindOf, isGithubSource, type AssetKind } from "./asset";
 
@@ -14,10 +14,11 @@ export type NodeDetail = {
     status: string;
     tags: string[];
     links: Record<string, string>;
-    sourceRepo: string;
+    sourceRepo: string | null;
+    repoReachable: boolean;
     updatedAt: Date;
   };
-  detail: { path: string; markdown: string | null };
+  detail: { path: string | null; markdown: string | null };
   diagrams: {
     path: string;
     title: string | null;
@@ -32,7 +33,6 @@ export type NodeDetail = {
     dueOn: string | null;
     url: string | null;
   }[];
-  importErrors: { path: string; message: string }[];
 };
 
 export function assetUrl(id: string, path: string): string {
@@ -73,7 +73,7 @@ export async function loadNodeDetail(id: string): Promise<NodeDetail | null> {
   const [row] = await db.select().from(nodes).where(eq(nodes.id, id)).limit(1);
   if (!row) return null;
 
-  const [refRows, taskRows, errorRows, markdown] = await Promise.all([
+  const [refRows, taskRows, markdown] = await Promise.all([
     db
       .select({ externalId: externalRefs.externalId, url: externalRefs.url })
       .from(externalRefs)
@@ -91,11 +91,9 @@ export async function loadNodeDetail(id: string): Promise<NodeDetail | null> {
       })
       .from(taskCache)
       .where(eq(taskCache.nodeId, id)),
-    db
-      .select({ path: importErrors.path, message: importErrors.message })
-      .from(importErrors)
-      .where(eq(importErrors.sourceRepo, row.sourceRepo)),
-    readMarkdown(row.sourceRepo, row.detailPath),
+    row.sourceRepo !== null && row.detailPath !== null && row.repoReachable
+      ? readMarkdown(row.sourceRepo, row.detailPath)
+      : Promise.resolve(null),
   ]);
 
   const diagrams: NodeDetail["diagrams"] = [];
@@ -121,12 +119,12 @@ export async function loadNodeDetail(id: string): Promise<NodeDetail | null> {
       tags: row.tags,
       links: row.links,
       sourceRepo: row.sourceRepo,
+      repoReachable: row.repoReachable,
       updatedAt: row.updatedAt,
     },
     detail: { path: row.detailPath, markdown },
     diagrams,
     asana: ref ? { projectId: ref.externalId, url: ref.url } : null,
     tasks: [...taskRows].sort(compareTasks),
-    importErrors: errorRows,
   };
 }

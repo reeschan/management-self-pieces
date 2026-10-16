@@ -1,18 +1,23 @@
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 
+import type { RepoKey } from "@/lib/nodes/repo-link";
+
 export type GithubAction =
-  | { kind: "import-repo"; repos: string[] } // 取り込み直すリポジトリ (fullName)
-  | { kind: "ignore"; reason: string };
+  | { kind: "refresh"; repos: RepoKey[] } // 名前・id・届くかを GitHub に照らして直す
+  | { kind: "unreachable"; repos: RepoKey[] }; // 届かない印を付ける
 
-const repoRef = z.object({ full_name: z.string().min(1) });
+/** decideGithubAction の判断と、何もしないときの理由 (応答とログ用) */
+type GithubDecision = { actions: GithubAction[]; reason: string };
 
-const pushSchema = z.object({
-  ref: z.string(),
-  repository: z.object({
-    full_name: z.string().min(1),
-    default_branch: z.string().min(1),
-  }),
+const repoRef = z.object({
+  id: z.number(),
+  full_name: z.string().min(1),
+});
+
+const repositorySchema = z.object({
+  action: z.string(),
+  repository: repoRef,
 });
 
 const installationRepositoriesSchema = z.object({
@@ -25,67 +30,98 @@ const installationSchema = z.object({
   repositories: z.array(repoRef).optional().default([]),
 });
 
-function importRepos(names: string[], emptyReason: string): GithubAction {
-  const repos = [...new Set(names)];
-  if (repos.length === 0) return { kind: "ignore", reason: emptyReason };
-  return { kind: "import-repo", repos };
+/** repository イベントで、名前や状態が変わって見直しが要る action */
+const refreshRepositoryActions = new Set([
+  "renamed",
+  "transferred",
+  "archived",
+  "unarchived",
+]);
+
+function toKey(ref: z.infer<typeof repoRef>): RepoKey {
+  return { id: ref.id, fullName: ref.full_name };
 }
 
-/** GitHub Webhook のイベントから、取り込み直すリポジトリを決める (例外を投げない) */
-export function decideGithubAction(
-  event: string,
-  payload: unknown,
-): GithubAction {
+/** GitHub Webhook のイベントから、つながりの更新の指示と理由を決める (例外を投げない) */
+function decideGithubDecision(event: string, payload: unknown): GithubDecision {
   switch (event) {
-    case "push": {
-      const parsed = pushSchema.safeParse(payload);
+    case "repository": {
+      const parsed = repositorySchema.safeParse(payload);
       if (!parsed.success) {
-        return { kind: "ignore", reason: "invalid push payload" };
+        return { actions: [], reason: "repository の payload が不正です" };
       }
-      const { ref, repository } = parsed.data;
-      if (ref !== `refs/heads/${repository.default_branch}`) {
-        return { kind: "ignore", reason: "push to non-default branch" };
+      const { action, repository } = parsed.data;
+      if (refreshRepositoryActions.has(action)) {
+        return {
+          actions: [{ kind: "refresh", repos: [toKey(repository)] }],
+          reason: `repository の action: ${action}`,
+        };
       }
-      return { kind: "import-repo", repos: [repository.full_name] };
+      if (action === "deleted") {
+        return {
+          actions: [{ kind: "unreachable", repos: [toKey(repository)] }],
+          reason: `repository の action: ${action}`,
+        };
+      }
+      return { actions: [], reason: `repository の action: ${action}` };
     }
     case "installation_repositories": {
       const parsed = installationRepositoriesSchema.safeParse(payload);
       if (!parsed.success) {
         return {
-          kind: "ignore",
-          reason: "invalid installation_repositories payload",
+          actions: [],
+          reason: "installation_repositories の payload が不正です",
         };
       }
       const { repositories_added, repositories_removed } = parsed.data;
-      return importRepos(
-        [...repositories_added, ...repositories_removed].map(
-          (r) => r.full_name,
-        ),
-        "no repositories changed",
-      );
+      const actions: GithubAction[] = [];
+      if (repositories_added.length > 0) {
+        actions.push({
+          kind: "refresh",
+          repos: repositories_added.map(toKey),
+        });
+      }
+      if (repositories_removed.length > 0) {
+        actions.push({
+          kind: "unreachable",
+          repos: repositories_removed.map(toKey),
+        });
+      }
+      if (actions.length === 0) {
+        return { actions, reason: "リポジトリの変化がありません" };
+      }
+      return { actions, reason: "installation の repositories が変わりました" };
     }
     case "installation": {
       const parsed = installationSchema.safeParse(payload);
       if (!parsed.success) {
-        return { kind: "ignore", reason: "invalid installation payload" };
+        return { actions: [], reason: "installation の payload が不正です" };
       }
-      if (parsed.data.action !== "deleted") {
+      const { action, repositories } = parsed.data;
+      if (action === "deleted" && repositories.length > 0) {
         return {
-          kind: "ignore",
-          reason: `installation action: ${parsed.data.action}`,
+          actions: [{ kind: "unreachable", repos: repositories.map(toKey) }],
+          reason: "installation が削除されました",
         };
       }
-      return importRepos(
-        parsed.data.repositories.map((r) => r.full_name),
-        "no repositories in deleted installation",
-      );
+      return { actions: [], reason: `installation の action: ${action}` };
     }
     default:
-      return {
-        kind: "ignore",
-        reason: `unhandled event: ${event || "(none)"}`,
-      };
+      return { actions: [], reason: `対象外のイベント: ${event || "(なし)"}` };
   }
+}
+
+/** GitHub Webhook のイベントから、つながりの更新の指示を決める (例外を投げない) */
+export function decideGithubAction(
+  event: string,
+  payload: unknown,
+): GithubAction[] {
+  return decideGithubDecision(event, payload).actions;
+}
+
+/** 空になるときの理由を返す (応答とログ用) */
+export function explainGithubAction(event: string, payload: unknown): string {
+  return decideGithubDecision(event, payload).reason;
 }
 
 /** Authorization ヘッダーが "Bearer <cronSecret>" と一致するかを定数時間で比べる */

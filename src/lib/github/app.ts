@@ -21,6 +21,33 @@ function splitFullName(fullName: string): { owner: string; repo: string } {
   return { owner, repo };
 }
 
+/** GitHub API が返すリポジトリのオブジェクト (使う項目だけ) */
+export type RawRepo = {
+  id: number | bigint;
+  full_name: string;
+  default_branch: string;
+  description?: string | null;
+  topics?: string[] | null;
+  homepage?: string | null;
+  html_url: string;
+  archived: boolean;
+};
+
+/** GitHub API のリポジトリを RepoRef に直す */
+export function toRepoRef(raw: RawRepo): RepoRef {
+  return {
+    // API の型は bigint を含むが、実際の id は Number で正確に表せる範囲
+    id: Number(raw.id),
+    fullName: raw.full_name,
+    defaultBranch: raw.default_branch,
+    description: raw.description ?? null,
+    topics: raw.topics ?? [],
+    homepage: raw.homepage ? raw.homepage : null,
+    htmlUrl: raw.html_url,
+    archived: raw.archived,
+  };
+}
+
 /** GitHub App の Installation Token で読む RepoSource */
 export function createRepoSource(): RepoSource {
   const env = githubEnv();
@@ -80,10 +107,7 @@ export function createRepoSource(): RepoSource {
         });
         for (const repo of repos) {
           repoInstallations.set(repo.full_name.toLowerCase(), installation.id);
-          refs.push({
-            fullName: repo.full_name,
-            defaultBranch: repo.default_branch,
-          });
+          refs.push(toRepoRef(repo));
         }
       }
       return refs;
@@ -98,11 +122,32 @@ export function createRepoSource(): RepoSource {
           owner,
           repo,
         });
-        return { fullName: data.full_name, defaultBranch: data.default_branch };
+        return toRepoRef(data);
       } catch (e) {
         if (isNotFound(e)) return null;
         throw e;
       }
+    },
+
+    async getRepoById(id: number): Promise<RepoRef | null> {
+      // どの Installation のリポジトリか分からないので、順に試して最初に見つかったものを返す
+      const installations = await app.octokit.paginate(
+        "GET /app/installations",
+        { per_page: 100 },
+      );
+      for (const installation of installations) {
+        const octokit = await installationOctokit(installation.id);
+        try {
+          const { data } = await octokit.request("GET /repositories/{id}", {
+            id,
+          });
+          repoInstallations.set(data.full_name.toLowerCase(), installation.id);
+          return toRepoRef(data);
+        } catch (e) {
+          if (!isNotFound(e)) throw e;
+        }
+      }
+      return null;
     },
 
     async getFile(

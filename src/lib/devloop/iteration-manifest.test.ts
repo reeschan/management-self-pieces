@@ -143,7 +143,7 @@ describe("イテレーションの保存と一覧", () => {
     await testDb.db.delete(nodes);
     await testDb.db.insert(nodes).values(["node-a", "node-b"].map((id) => ({
       id, kind: "app", title: id, summary: "テスト用の Node", status: "active",
-      detailPath: "README.md", sourceRepo: `example/${id}`, sourceSha: "node-sha",
+      detailPath: "README.md", sourceRepo: `example/${id}`,
     })));
   });
 

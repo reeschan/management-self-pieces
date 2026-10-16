@@ -33,7 +33,6 @@ describe("createTestDb", () => {
       detailPath: "README.md",
       tags: ["test"],
       sourceRepo: "owner/test-repo",
-      sourceSha: "0000000",
     });
 
     const rows = await db.select().from(nodes).where(eq(nodes.id, "test-node"));
@@ -45,5 +44,43 @@ describe("createTestDb", () => {
       tags: ["test"],
       links: {},
     });
+  });
+
+  it("sourceRepo と detailPath が null の Node を入れられる", async () => {
+    const { db } = testDb;
+    await db.insert(nodes).values({
+      id: "no-repo-node",
+      kind: "app",
+      title: "リポジトリの無い Node",
+      summary: "リポジトリを持たない行",
+      status: "active",
+    });
+
+    const rows = await db.select().from(nodes).where(eq(nodes.id, "no-repo-node"));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      sourceRepo: null,
+      detailPath: null,
+      repoId: null,
+      repoReachable: true,
+    });
+    expect(rows[0].createdAt).toBeInstanceOf(Date);
+  });
+
+  it("同じ sourceRepo の Node は 2 つ目の insert が失敗する", async () => {
+    const { db } = testDb;
+    const base = {
+      kind: "app",
+      title: "重複の確認",
+      summary: "同じリポジトリを持つ行",
+      status: "active",
+      sourceRepo: "owner/dup-repo",
+    };
+    await db.insert(nodes).values({ ...base, id: "dup-a" });
+
+    await expect(
+      db.insert(nodes).values({ ...base, id: "dup-b" }),
+    ).rejects.toThrow();
   });
 });

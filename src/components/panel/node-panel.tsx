@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -20,7 +21,8 @@ type PanelDetail = {
     status: string;
     tags: string[];
     links: Record<string, string>;
-    sourceRepo: string;
+    sourceRepo: string | null;
+    repoReachable: boolean;
     updatedAt: string;
   };
   detail: { path: string; markdown: string | null };
@@ -32,7 +34,6 @@ type PanelDetail = {
   }[];
   asana: { projectId: string; url: string | null } | null;
   tasks: PanelTask[];
-  importErrors: { path: string; message: string }[];
 };
 
 type Result =
@@ -260,18 +261,6 @@ function TabBody({
     case "概要":
       return (
         <div className="space-y-3 text-sm">
-          {data.importErrors.length > 0 && (
-            <div className="rounded border border-amber-600 bg-amber-950/40 p-2 text-amber-200">
-              <p className="font-semibold">取り込みの警告</p>
-              <ul className="mt-1 list-disc pl-4 text-xs">
-                {data.importErrors.map((e) => (
-                  <li key={`${e.path}:${e.message}`}>
-                    {e.path}: {e.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <p className="whitespace-pre-wrap">{data.node.summary}</p>
           {data.node.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1">
@@ -291,13 +280,33 @@ function TabBody({
               <dd className="inline">{data.node.updatedAt}</dd>
             </div>
             <div>
-              <dt className="inline">取り込み元: </dt>
-              <dd className="inline">{data.node.sourceRepo}</dd>
+              <dt className="inline">リポジトリ: </dt>
+              <dd className="inline">{data.node.sourceRepo ?? "なし"}</dd>
+              {data.node.sourceRepo !== null && !data.node.repoReachable && (
+                <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                  リポジトリに届きません
+                </span>
+              )}
             </div>
           </dl>
+          <p>
+            <Link
+              href={`/nodes/${encodeURIComponent(data.node.id)}/edit`}
+              className="text-indigo-300 underline"
+            >
+              編集
+            </Link>
+          </p>
         </div>
       );
     case "詳細":
+      if (data.node.sourceRepo === null) {
+        return (
+          <p className="text-sm text-zinc-400">
+            リポジトリの無い Node には詳細がありません
+          </p>
+        );
+      }
       return data.detail.markdown === null ? (
         <p className="text-sm text-zinc-400">
           詳細を読み込めませんでした ({data.detail.path})
@@ -310,7 +319,7 @@ function TabBody({
     case "アーキ図":
       return data.diagrams.length === 0 ? (
         <p className="text-sm text-zinc-400">
-          node.yaml の diagrams に図を追加すると表示されます
+          Node の編集画面で図のパスを足すと表示されます
         </p>
       ) : (
         <div className="space-y-4">

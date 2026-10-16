@@ -135,8 +135,20 @@ describe("handleMcpRequest", () => {
       summary: `${title} の要約`,
       status: "active",
       detailPath: `nodes/${id}.md`,
-      sourceRepo: "owner/repo",
-      sourceSha: "abc123",
+      sourceRepo: `owner/${id}`,
+    });
+  }
+
+  /** リポジトリの無い Node (sourceRepo が null) */
+  async function insertNodeWithoutRepo(id: string, title: string) {
+    await testDb.db.insert(nodes).values({
+      id,
+      kind: "project",
+      title,
+      summary: `${title} の要約`,
+      status: "active",
+      detailPath: null,
+      sourceRepo: null,
     });
   }
 
@@ -230,7 +242,7 @@ describe("handleMcpRequest", () => {
           title: "アルファ",
           summary: "アルファ の要約",
           status: "active",
-          sourceRepo: "owner/repo",
+          sourceRepo: "owner/alpha",
         },
         {
           id: "zeta",
@@ -238,7 +250,7 @@ describe("handleMcpRequest", () => {
           title: "ゼータ",
           summary: "ゼータ の要約",
           status: "active",
-          sourceRepo: "owner/repo",
+          sourceRepo: "owner/zeta",
         },
       ]);
 
@@ -255,6 +267,35 @@ describe("handleMcpRequest", () => {
         durationMs: 0,
       });
       expect(rows[0].createdAt).toEqual(now);
+    });
+
+    it("list_nodes はリポジトリの無い Node で sourceRepo: null を返す", async () => {
+      await insertNode("alpha", "アルファ");
+      await insertNodeWithoutRepo("beta", "ベータ");
+      const { headers } = await hostAuth(["read"]);
+
+      const { text, isError } = await toolText(
+        await handleMcpRequest(callTool("list_nodes", {}, headers), hostDeps()),
+      );
+      expect(isError).toBe(false);
+      expect(JSON.parse(text)).toEqual([
+        {
+          id: "alpha",
+          kind: "project",
+          title: "アルファ",
+          summary: "アルファ の要約",
+          status: "active",
+          sourceRepo: "owner/alpha",
+        },
+        {
+          id: "beta",
+          kind: "project",
+          title: "ベータ",
+          summary: "ベータ の要約",
+          status: "active",
+          sourceRepo: null,
+        },
+      ]);
     });
 
     it('["loop"] だけのトークンで list_nodes を呼ぶと forbidden で、Node は返さない', async () => {
@@ -299,6 +340,20 @@ describe("handleMcpRequest", () => {
       });
     });
 
+    it("get_project はリポジトリの無い Node で sourceRepo: null を返す", async () => {
+      await insertNodeWithoutRepo("beta", "ベータ");
+      const { text, isError } = await toolText(
+        await handleMcpRequest(callTool("get_project", { node_id: "beta" }, LOCAL_HEADERS), localDeps()),
+      );
+      expect(isError).toBe(false);
+      expect(JSON.parse(text)).toMatchObject({
+        id: "beta",
+        kind: "project",
+        title: "ベータ",
+        sourceRepo: null,
+      });
+    });
+
     it("get_project が asana の接続と件数を返す", async () => {
       await insertNode("alpha", "アルファ");
       await insertNode("beta", "ベータ");
@@ -323,7 +378,7 @@ describe("handleMcpRequest", () => {
         title: "アルファ",
         summary: "アルファ の要約",
         status: "active",
-        sourceRepo: "owner/repo",
+        sourceRepo: "owner/alpha",
         asana: { linked: true, url: "https://app.asana.com/0/proj-alpha" },
         taskCounts: { open: 2, completed: 1 },
         devloop: {

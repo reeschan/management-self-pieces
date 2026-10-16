@@ -202,7 +202,7 @@ export function registerLoopTools(server: McpServer, ctx: ToolContext): void {
       name: "next_project",
       scope: "loop",
       write: true,
-      description: `次に進める Node を 1 つ選び、{ nodeId, sourceRepo, autonomy, maxPbisPerIteration, sprintLimit, openIteration } を返す。選んだ Node には選んだ時刻を記録する。進める Node が無い・全体停止中・全体の 1 日の上限に達した、のいずれかなら null。${UNTRUSTED_NOTE}`,
+      description: `次に進める Node を 1 つ選び、{ nodeId, sourceRepo, autonomy, maxPbisPerIteration, sprintLimit, openIteration } を返す。リポジトリがあり、届く Node だけから選ぶ。選んだ Node には選んだ時刻を記録する。進める Node が無い・全体停止中・全体の 1 日の上限に達した、のいずれかなら null。${UNTRUSTED_NOTE}`,
       inputSchema: {},
     },
     async () => controlService(ctx).nextProject(),

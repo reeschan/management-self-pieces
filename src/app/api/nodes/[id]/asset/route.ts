@@ -34,12 +34,15 @@ export async function GET(
         detailPath: nodes.detailPath,
         diagrams: nodes.diagrams,
         sourceRepo: nodes.sourceRepo,
+        repoReachable: nodes.repoReachable,
       })
       .from(nodes)
       .where(eq(nodes.id, id))
       .limit(1);
     if (!node) return notFound();
-    // node.yaml に書かれた detail と diagrams のパス以外は読ませない
+    // リポジトリが無い・届かない Node は読めない
+    if (node.sourceRepo === null || !node.repoReachable) return notFound();
+    // Node に登録された detail と diagrams のパス以外は読ませない
     if (!isAllowedAsset(node, path)) return notFound();
     if (!isGithubSource(node.sourceRepo)) return notFound();
     const kind = assetKindOf(path);

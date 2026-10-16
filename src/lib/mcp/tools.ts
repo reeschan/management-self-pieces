@@ -259,7 +259,7 @@ export function registerTools(server: McpServer, ctx: ToolContext): void {
       name: "list_nodes",
       scope: "read",
       write: false,
-      description: `登録されている Node (プロジェクト・サービスなど) の一覧を返す。各要素は id・kind・title・summary・status・sourceRepo。${UNTRUSTED_NOTE}`,
+      description: `登録されている Node (プロジェクト・サービスなど) の一覧を返す。各要素は id・kind・title・summary・status・sourceRepo。sourceRepo はリポジトリの無い Node では null。${UNTRUSTED_NOTE}`,
       inputSchema: {},
     },
     async () => {

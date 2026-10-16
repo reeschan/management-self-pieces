@@ -70,8 +70,7 @@ function makeNode(id: string) {
     summary: "",
     status: "active",
     detailPath: `nodes/${id}.md`,
-    sourceRepo: "owner/repo",
-    sourceSha: "abc123",
+    sourceRepo: `owner/${id}`,
   };
 }
 

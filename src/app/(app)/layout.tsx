@@ -39,6 +39,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <Link href="/" className="hover:underline">
             ダッシュボード
           </Link>
+          <Link href="/nodes" className="hover:underline">
+            Node
+          </Link>
           <Link href="/owner" className="flex items-center gap-1 hover:underline">
             Owner 判断
             {ownerDecisions > 0 && (

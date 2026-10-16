@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   index,
@@ -25,7 +26,7 @@ export const nodes = pgTable("nodes", {
   title: text("title").notNull(),
   summary: text("summary").notNull(),
   status: text("status").notNull(),
-  detailPath: text("detail_path").notNull(),
+  detailPath: text("detail_path"),
   tags: jsonb("tags").$type<string[]>().notNull().default([]),
   links: jsonb("links")
     .$type<Record<string, string>>()
@@ -39,8 +40,15 @@ export const nodes = pgTable("nodes", {
     .$type<Record<string, unknown>>()
     .notNull()
     .default({}),
-  sourceRepo: text("source_repo").notNull(),
-  sourceSha: text("source_sha").notNull(),
+  // owner/repo。Node のリポジトリ (無い Node もある)
+  sourceRepo: text("source_repo").unique(),
+  // GitHub のリポジトリ id (名前が変わっても追えるように持つ)
+  repoId: bigint("repo_id", { mode: "number" }).unique(),
+  // リポジトリに届くか。届かなくなっても Node は消さない
+  repoReachable: boolean("repo_reachable").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -112,18 +120,6 @@ export const syncState = pgTable("sync_state", {
   value: text("value").notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
-
-export const importErrors = pgTable(
-  "import_errors",
-  {
-    id: serial("id").primaryKey(),
-    sourceRepo: text("source_repo").notNull(),
-    path: text("path").notNull(),
-    message: text("message").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [index("import_errors_source_repo_idx").on(table.sourceRepo)],
-);
 
 // エージェント用トークン。平文は保存せずハッシュだけを持つ
 export const agentTokens = pgTable(
@@ -315,8 +311,6 @@ export type TaskCacheRow = typeof taskCache.$inferSelect;
 export type NewTaskCacheRow = typeof taskCache.$inferInsert;
 export type SyncStateRow = typeof syncState.$inferSelect;
 export type NewSyncStateRow = typeof syncState.$inferInsert;
-export type ImportErrorRow = typeof importErrors.$inferSelect;
-export type NewImportErrorRow = typeof importErrors.$inferInsert;
 export type AgentTokenRow = typeof agentTokens.$inferSelect;
 export type NewAgentTokenRow = typeof agentTokens.$inferInsert;
 export type IpAllowlistRow = typeof ipAllowlist.$inferSelect;

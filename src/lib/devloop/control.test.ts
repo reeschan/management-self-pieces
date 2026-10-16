@@ -295,7 +295,10 @@ describe("createControlService", () => {
     return createControlService({ db: testDb.db, now: () => clock });
   }
 
-  async function addNode(id: string) {
+  async function addNode(
+    id: string,
+    overrides: Partial<typeof nodes.$inferInsert> = {},
+  ) {
     await testDb.db.insert(nodes).values({
       id,
       kind: "project",
@@ -304,7 +307,7 @@ describe("createControlService", () => {
       status: "active",
       detailPath: `docs/${id}.md`,
       sourceRepo: `owner/${id}`,
-      sourceSha: "abc",
+      ...overrides,
     });
   }
 
@@ -444,6 +447,25 @@ describe("createControlService", () => {
     it("止まっていない Node が無ければ null", async () => {
       await addNode("a");
       expect(await service().nextProject()).toBeNull();
+    });
+
+    it("リポジトリの無い Node (sourceRepo: null) は選ばれない", async () => {
+      await addNode("a", { detailPath: null, sourceRepo: null });
+      await service().updateSettings("a", { enabled: true, paused: false });
+      expect((await service().isStopped("a")).stopped).toBe(false);
+      expect(await service().nextProject()).toBeNull();
+    });
+
+    it("リポジトリが届かない Node は選ばれない", async () => {
+      await addNode("a", { repoReachable: false });
+      await service().updateSettings("a", { enabled: true, paused: false });
+      expect((await service().isStopped("a")).stopped).toBe(false);
+      expect(await service().nextProject()).toBeNull();
+    });
+
+    it("同じ条件でも、リポジトリがあり届く Node なら選ばれる", async () => {
+      await addRunnableNode("a");
+      expect((await service().nextProject())?.nodeId).toBe("a");
     });
 
     it("全体の 1 日の上限 (既定 1) に達すると null。上限を上げても Node ごとの上限で外れる", async () => {
