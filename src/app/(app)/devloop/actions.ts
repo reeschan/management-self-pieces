@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getDb } from "@/db/client";
+import { actionError, UNAUTHORIZED, type ActionResult } from "@/lib/action-result";
 import { getAllowedSession } from "@/lib/auth/server";
 import {
   BoardError,
@@ -23,7 +24,8 @@ import { NodeId } from "@/lib/manifest/schema";
 import { getTracker, linkNodeToAsana } from "@/lib/tracker/service";
 
 // devloop の画面 (Node のパネル・Owner 判断の受け箱・設定画面) から使う操作。
-// 認証の確認は各関数の先頭で行い、例外は利用者向けの文言に変えて投げ直す。
+// 認証の確認は各関数の先頭で行い、想定内のエラーは戻り値の ActionResult で返す
+// (本番のビルドでは例外の message が画面まで届かないため)。
 
 /** Owner 判断の受け箱の画面 */
 const OWNER_INBOX_PATH = "/owner";
@@ -39,11 +41,11 @@ const globalStopSchema = z.object({
 const dailyLimitSchema = z.number().int().min(1).max(20);
 const answerTextSchema = z.string().trim().min(1).max(5000);
 
-/** 入力を検証する。失敗したら中身を出さずに利用者向けの文言で投げる */
-function parseInput<T>(schema: z.ZodType<T>, value: unknown): T {
+/** 入力を検証する。失敗したら中身を出さずに利用者向けの文言を戻り値で返す */
+function parseInput<T>(schema: z.ZodType<T>, value: unknown): ActionResult<T> {
   const result = schema.safeParse(value);
-  if (!result.success) throw new Error("入力が正しくありません");
-  return result.data;
+  if (!result.success) return { ok: false, message: "入力が正しくありません" };
+  return { ok: true, value: result.data };
 }
 
 function limitMessage(error: BoardLimitError): string {
@@ -69,14 +71,13 @@ function boardMessage(error: BoardError): string {
 }
 
 /** 看板の例外は利用者向けの文言に、それ以外は中身をログにだけ出して一律の文言に変える */
-async function withUserError<T>(fn: () => Promise<T>): Promise<T> {
+async function withUserError<T>(fn: () => Promise<T>): Promise<ActionResult<T>> {
   try {
-    return await fn();
+    return { ok: true, value: await fn() };
   } catch (error) {
-    if (error instanceof BoardLimitError) throw new Error(limitMessage(error));
-    if (error instanceof BoardError) throw new Error(boardMessage(error));
-    console.error("[devloop:actions] 処理に失敗しました", error);
-    throw new Error("処理に失敗しました");
+    if (error instanceof BoardLimitError) return { ok: false, message: limitMessage(error) };
+    if (error instanceof BoardError) return { ok: false, message: boardMessage(error) };
+    return actionError(error, "[devloop:actions] 処理に失敗しました");
   }
 }
 
@@ -93,19 +94,18 @@ function controlService() {
 }
 
 /** 看板を準備する。Asana のプロジェクトをつなぎ (無ければ作り)、足りない列を作る */
-export async function prepareBoard(nodeId: string): Promise<{
-  projectId: string;
-  url: string | null;
-  created: Section[];
-}> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+export async function prepareBoard(nodeId: string): Promise<
+  ActionResult<{ projectId: string; url: string | null; created: Section[] }>
+> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const id = parseInput(NodeId, nodeId);
+  if (!id.ok) return id;
   const result = await withUserError(async () => {
-    const ref = await linkNodeToAsana(id);
-    const { created } = await boardService().ensureSections(id);
+    const ref = await linkNodeToAsana(id.value);
+    const { created } = await boardService().ensureSections(id.value);
     return { projectId: ref.externalId, url: ref.url, created };
   });
-  revalidatePath("/");
+  if (result.ok) revalidatePath("/");
   return result;
 }
 
@@ -113,14 +113,16 @@ export async function prepareBoard(nodeId: string): Promise<{
 export async function updateDevloopSettings(
   nodeId: string,
   patch: SettingsPatch,
-): Promise<ControlSettings> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+): Promise<ActionResult<ControlSettings>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const id = parseInput(NodeId, nodeId);
+  if (!id.ok) return id;
   const data = parseInput(SettingsPatchSchema, patch);
+  if (!data.ok) return data;
   const settings = await withUserError(() =>
-    controlService().updateSettings(id, data),
+    controlService().updateSettings(id.value, data.value),
   );
-  revalidatePath("/");
+  if (settings.ok) revalidatePath("/");
   return settings;
 }
 
@@ -128,21 +130,26 @@ export async function updateDevloopSettings(
 export async function pauseNode(
   nodeId: string,
   reason: string,
-): Promise<ControlSettings> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+): Promise<ActionResult<ControlSettings>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const id = parseInput(NodeId, nodeId);
+  if (!id.ok) return id;
   const text = parseInput(pauseReasonSchema, reason);
-  const settings = await withUserError(() => controlService().pause(id, text));
-  revalidatePath("/");
+  if (!text.ok) return text;
+  const settings = await withUserError(() =>
+    controlService().pause(id.value, text.value),
+  );
+  if (settings.ok) revalidatePath("/");
   return settings;
 }
 
 /** Node の devloop の一時停止を解く */
-export async function resumeNode(nodeId: string): Promise<ControlSettings> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+export async function resumeNode(nodeId: string): Promise<ActionResult<ControlSettings>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const id = parseInput(NodeId, nodeId);
-  const settings = await withUserError(() => controlService().resume(id));
-  revalidatePath("/");
+  if (!id.ok) return id;
+  const settings = await withUserError(() => controlService().resume(id.value));
+  if (settings.ok) revalidatePath("/");
   return settings;
 }
 
@@ -150,23 +157,37 @@ export async function resumeNode(nodeId: string): Promise<ControlSettings> {
 export async function setGlobalStop(
   on: boolean,
   reason: string | null,
-): Promise<void> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+): Promise<ActionResult<null>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const data = parseInput(globalStopSchema, { on, reason });
+  if (!data.ok) return data;
   // 空の理由は「理由なし」として扱う
-  const stopReason = data.reason || undefined;
-  await withUserError(() => controlService().setGlobalStop(data.on, stopReason));
-  revalidatePath("/");
-  revalidatePath(SETTINGS_PATH);
+  const stopReason = data.value.reason || undefined;
+  const result = await withUserError(async () => {
+    await controlService().setGlobalStop(data.value.on, stopReason);
+    return null;
+  });
+  if (result.ok) {
+    revalidatePath("/");
+    revalidatePath(SETTINGS_PATH);
+  }
+  return result;
 }
 
 /** 全 Node を合わせた 1 日の上限 (1〜20) を変える */
-export async function setDailyLimit(n: number): Promise<void> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+export async function setDailyLimit(n: number): Promise<ActionResult<null>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const limit = parseInput(dailyLimitSchema, n);
-  await withUserError(() => controlService().setDailyLimit(limit));
-  revalidatePath("/");
-  revalidatePath(SETTINGS_PATH);
+  if (!limit.ok) return limit;
+  const result = await withUserError(async () => {
+    await controlService().setDailyLimit(limit.value);
+    return null;
+  });
+  if (result.ok) {
+    revalidatePath("/");
+    revalidatePath(SETTINGS_PATH);
+  }
+  return result;
 }
 
 /** Owner 判断に答える。答えは `[from:owner]` の印つきの Asana のコメントになる */
@@ -174,12 +195,21 @@ export async function answerOwnerDecision(
   nodeId: string,
   itemId: string,
   text: string,
-): Promise<void> {
-  if (!(await getAllowedSession())) throw new Error("unauthorized");
+): Promise<ActionResult<null>> {
+  if (!(await getAllowedSession())) return UNAUTHORIZED;
   const id = parseInput(NodeId, nodeId);
+  if (!id.ok) return id;
   const item = parseInput(itemIdSchema, itemId);
+  if (!item.ok) return item;
   const answer = parseInput(answerTextSchema, text);
-  await withUserError(() => boardService().answerOwner(id, item, answer));
-  revalidatePath("/");
-  revalidatePath(OWNER_INBOX_PATH);
+  if (!answer.ok) return answer;
+  const result = await withUserError(async () => {
+    await boardService().answerOwner(id.value, item.value, answer.value);
+    return null;
+  });
+  if (result.ok) {
+    revalidatePath("/");
+    revalidatePath(OWNER_INBOX_PATH);
+  }
+  return result;
 }

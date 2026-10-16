@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 
 import { setDailyLimit, setGlobalStop } from "@/app/(app)/devloop/actions";
+import type { ActionResult } from "@/lib/action-result";
 import type { GlobalStop } from "@/lib/devloop/control";
 
 const inputClass = "w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
@@ -32,14 +33,22 @@ export function DevloopSection({
     limitValue >= LIMIT_MIN &&
     limitValue <= LIMIT_MAX;
 
-  function run(action: () => Promise<void>) {
+  function run(
+    action: () => Promise<ActionResult<unknown>>,
+    onSuccess: () => void,
+  ) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       try {
-        await action();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+        const result = await action();
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        onSuccess();
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -47,20 +56,22 @@ export function DevloopSection({
   function submitStop(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending) return;
-    run(async () => {
-      await setGlobalStop(true, reason.trim() === "" ? null : reason.trim());
-      setReason("");
-      setNotice("すべての Node の devloop を止めました。");
-    });
+    run(
+      () => setGlobalStop(true, reason.trim() === "" ? null : reason.trim()),
+      () => {
+        setReason("");
+        setNotice("すべての Node の devloop を止めました。");
+      },
+    );
   }
 
   function submitLimit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending || !limitValid) return;
-    run(async () => {
-      await setDailyLimit(limitValue);
-      setNotice(`1 日の上限を ${limitValue} 回にしました。`);
-    });
+    run(
+      () => setDailyLimit(limitValue),
+      () => setNotice(`1 日の上限を ${limitValue} 回にしました。`),
+    );
   }
 
   return (
@@ -73,10 +84,12 @@ export function DevloopSection({
             type="button"
             disabled={pending}
             className={buttonClass}
-            onClick={() => run(async () => {
-              await setGlobalStop(false, null);
-              setNotice("全体停止を解きました。");
-            })}
+            onClick={() =>
+              run(
+                () => setGlobalStop(false, null),
+                () => setNotice("全体停止を解きました。"),
+              )
+            }
           >
             再開する
           </button>

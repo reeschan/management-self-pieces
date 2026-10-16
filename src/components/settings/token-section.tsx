@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 
 import { issueAgentToken, revokeAgentToken } from "@/app/(app)/settings/actions";
+import type { ActionResult } from "@/lib/action-result";
 import type { listTokens, Scope } from "@/lib/mcp/tokens";
 
 type Props = {
@@ -28,13 +29,18 @@ export function TokenSection({ tokens, now }: Props) {
   const [command, setCommand] = useState("");
   const [copied, setCopied] = useState(false);
 
-  function run(action: () => Promise<void>) {
+  function run<T>(action: () => Promise<ActionResult<T>>, onSuccess: (value: T) => void) {
     setError(null);
     startTransition(async () => {
       try {
-        await action();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+        const result = await action();
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        onSuccess(result.value);
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -42,13 +48,12 @@ export function TokenSection({ tokens, now }: Props) {
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending || issued || name.trim() === "" || selectedScopes.length === 0) return;
-    run(async () => {
-      const result = await issueAgentToken({
-        name: name.trim(),
-        scopes: selectedScopes,
-        expiresInDays: expiresInDays === "none" ? null : Number(expiresInDays),
-      });
-      setIssued(result);
+    run(() => issueAgentToken({
+      name: name.trim(),
+      scopes: selectedScopes,
+      expiresInDays: expiresInDays === "none" ? null : Number(expiresInDays),
+    }), (value) => {
+      setIssued(value);
       setCopied(false);
       setCommand(`claude mcp add --scope user --transport http pieces ${window.location.origin}/api/mcp --header 'Authorization: Bearer \${PIECES_AGENT_TOKEN}'`);
       setName("");
@@ -96,8 +101,7 @@ export function TokenSection({ tokens, now }: Props) {
                         aria-label={`${token.name} を失効`}
                         onClick={() => {
                           if (!window.confirm(`「${token.name}」を失効させますか？このトークンは使えなくなります。`)) return;
-                          run(async () => {
-                            await revokeAgentToken(token.id);
+                          run(() => revokeAgentToken(token.id), () => {
                             if (issued?.id === token.id) setIssued(null);
                           });
                         }}

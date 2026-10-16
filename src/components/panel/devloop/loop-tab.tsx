@@ -7,6 +7,7 @@ import {
   resumeNode,
   updateDevloopSettings,
 } from "@/app/(app)/devloop/actions";
+import type { ActionResult } from "@/lib/action-result";
 
 import { formatJst, type DevloopViewData } from "./types";
 
@@ -23,7 +24,10 @@ type Props = {
   onChanged: () => void;
 };
 
-type Run = (action: () => Promise<unknown>, onSuccess?: () => void) => void;
+type Run = (
+  action: () => Promise<ActionResult<unknown>>,
+  onSuccess?: () => void,
+) => void;
 
 const numberInputClass =
   "w-20 rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-sm";
@@ -36,11 +40,15 @@ export function LoopTab({ nodeId, view, onChanged }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        await action();
+        const result = await action();
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         onSuccess?.();
         onChanged();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   };

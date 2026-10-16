@@ -20,10 +20,14 @@ export function BoardTab({ nodeId, view, onChanged }: Props) {
     setError(null);
     startTransition(async () => {
       try {
-        await prepareBoard(nodeId);
+        const result = await prepareBoard(nodeId);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         onChanged();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }

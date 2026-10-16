@@ -30,11 +30,15 @@ export function OwnerAnswerForm({
     setNotice(null);
     startTransition(async () => {
       try {
-        await answerOwnerDecision(nodeId, itemId, body);
+        const result = await answerOwnerDecision(nodeId, itemId, body);
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         setNotice("送りました");
         setText("");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }

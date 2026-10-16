@@ -7,6 +7,7 @@ import {
   linkAsanaProject,
   refreshNodeTasks,
 } from "@/app/(app)/actions";
+import type { ActionResult } from "@/lib/action-result";
 
 export type PanelTask = {
   externalId: string;
@@ -29,15 +30,22 @@ export function TicketsTab({ nodeId, asana, tasks, onChanged }: Props) {
   const [name, setName] = useState("");
   const [dueOn, setDueOn] = useState("");
 
-  function run(action: () => Promise<unknown>, onSuccess?: () => void) {
+  function run(
+    action: () => Promise<ActionResult<unknown>>,
+    onSuccess?: () => void,
+  ) {
     setError(null);
     startTransition(async () => {
       try {
-        await action();
+        const result = await action();
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
         onSuccess?.();
         onChanged();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }

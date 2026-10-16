@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 
 import { addIpAllowlist, allowCurrentIp, removeIpAllowlist } from "@/app/(app)/settings/actions";
+import type { ActionResult } from "@/lib/action-result";
 import type { listAllowlist } from "@/lib/mcp/ip-allowlist";
 
 const inputClass = "w-full rounded border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900";
@@ -16,14 +17,19 @@ export function IpSection({ entries }: { entries: Awaited<ReturnType<typeof list
   const [label, setLabel] = useState("");
   const [currentLabel, setCurrentLabel] = useState("今の IP");
 
-  function run(action: () => Promise<void>) {
+  function run<T>(action: () => Promise<ActionResult<T>>, onSuccess: (value: T) => void) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       try {
-        await action();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "失敗しました");
+        const result = await action();
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        onSuccess(result.value);
+      } catch {
+        setError("通信に失敗しました");
       }
     });
   }
@@ -31,8 +37,7 @@ export function IpSection({ entries }: { entries: Awaited<ReturnType<typeof list
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending || cidr.trim() === "" || label.trim() === "") return;
-    run(async () => {
-      const added = await addIpAllowlist({ cidr: cidr.trim(), label: label.trim() });
+    run(() => addIpAllowlist({ cidr: cidr.trim(), label: label.trim() }), (added) => {
       setNotice(`${added} を許可しました。`);
       setCidr("");
       setLabel("");
@@ -42,8 +47,7 @@ export function IpSection({ entries }: { entries: Awaited<ReturnType<typeof list
   function submitCurrentIp(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (pending || currentLabel.trim() === "") return;
-    run(async () => {
-      const added = await allowCurrentIp(currentLabel.trim());
+    run(() => allowCurrentIp(currentLabel.trim()), (added) => {
       setNotice(`${added} を許可しました。`);
     });
   }
@@ -73,8 +77,7 @@ export function IpSection({ entries }: { entries: Awaited<ReturnType<typeof list
                   <time dateTime={entry.createdAt.toISOString()}>{entry.createdAt.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</time>
                 </td>
                 <td className="px-3 py-2">
-                  <button type="button" disabled={pending} className={buttonClass} aria-label={`${entry.cidr} を削除`} onClick={() => run(async () => {
-                    await removeIpAllowlist(entry.id);
+                  <button type="button" disabled={pending} className={buttonClass} aria-label={`${entry.cidr} を削除`} onClick={() => run(() => removeIpAllowlist(entry.id), () => {
                     setNotice(`${entry.cidr} を削除しました。`);
                   })}>
                     削除
