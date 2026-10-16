@@ -1,8 +1,9 @@
 import { ipAddress } from "@vercel/functions";
 
 import { getDb } from "@/db/client";
-import { runtimeMode } from "@/lib/env";
+import { asanaOwnerGid, runtimeMode } from "@/lib/env";
 import { handleMcpRequest } from "@/lib/mcp/handler";
+import { getTracker } from "@/lib/tracker/service";
 
 export const maxDuration = 30;
 
@@ -18,6 +19,9 @@ export async function POST(req: Request) {
       // Vercel 以外では undefined になりうる。ローカルでは IP を使わないので null で構わない
       clientIp: ipAddress(req) ?? null,
       now: () => new Date(),
+      // Asana の環境変数は、看板のツールが呼ばれたときに読む
+      tracker: () => getTracker(),
+      ownerAssigneeId: asanaOwnerGid(),
     });
   } catch (error) {
     // 想定外の例外。中身はログにだけ出し、応答には返さない

@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { connection } from "next/server";
 
+import { DevloopSection } from "@/components/settings/devloop-section";
 import { IpSection } from "@/components/settings/ip-section";
+import { NodeTransferSection } from "@/components/settings/node-transfer-section";
 import { TokenSection } from "@/components/settings/token-section";
 import { getDb } from "@/db/client";
+import { createControlService } from "@/lib/devloop/control";
 import { runtimeMode } from "@/lib/env";
 import { listAudit } from "@/lib/mcp/audit";
 import { listAllowlist } from "@/lib/mcp/ip-allowlist";
@@ -18,10 +21,13 @@ export default async function SettingsPage({
   const onlyRejected = (await searchParams).rejected === "1";
   const db = getDb();
   const mode = runtimeMode();
-  const [tokens, allowlist, audit] = await Promise.all([
+  const control = createControlService({ db });
+  const [tokens, allowlist, audit, globalStop, dailyLimit] = await Promise.all([
     listTokens(db),
     listAllowlist(db),
     listAudit(db, { onlyRejected, limit: 100 }),
+    control.getGlobalStop(),
+    control.getDailyLimit(),
   ]);
   const tokenNames = new Map(tokens.map((token) => [token.id, token.name]));
   const now = new Date().getTime();
@@ -41,6 +47,16 @@ export default async function SettingsPage({
         )}
         <p className="text-xs text-zinc-500 dark:text-zinc-400">日時は日本時間で表示します。</p>
       </div>
+
+      <section aria-labelledby="devloop-heading" className="space-y-4">
+        <h2 id="devloop-heading" className="text-lg font-semibold">devloop</h2>
+        <DevloopSection globalStop={globalStop} dailyLimit={dailyLimit} />
+      </section>
+
+      <section aria-labelledby="node-transfer-heading" className="space-y-4">
+        <h2 id="node-transfer-heading" className="text-lg font-semibold">Node の書き出しと読み込み</h2>
+        <NodeTransferSection />
+      </section>
 
       <section aria-labelledby="tokens-heading" className="space-y-4">
         <h2 id="tokens-heading" className="text-lg font-semibold">エージェント用トークン</h2>

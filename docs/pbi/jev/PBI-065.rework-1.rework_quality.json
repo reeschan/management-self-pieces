@@ -1,0 +1,1 @@
+{"model": "jev-1.13.0", "answers": {"names_condition": {"type": "noul", "noul": 0.94}, "states_current_and_expected": {"type": "noul", "noul": 0.97}, "has_repro": {"type": "noul", "noul": 0.89}}, "usage": {"input_tokens": 1774, "output_tokens": 58}}

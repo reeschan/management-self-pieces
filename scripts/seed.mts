@@ -1,48 +1,40 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+
 import { getDb } from "@/db/client";
 import { EnvError } from "@/lib/env";
-import type { ImportResult } from "@/lib/github/types";
-import { applyImportResult } from "@/lib/import/apply-result";
-import { parseManifest } from "@/lib/manifest/parse";
+import { NodeServiceError } from "@/lib/nodes/service";
+import { importNodes, previewImport } from "@/lib/nodes/transfer";
 
-const fixturesDir = path.join(process.cwd(), "fixtures");
+const fixturesPath = path.join(process.cwd(), "fixtures", "nodes.json");
 
 async function main(): Promise<number> {
-  const files = (await readdir(fixturesDir))
-    .filter((name) => name.endsWith(".yaml"))
-    .sort();
-
-  const result: ImportResult = {
-    manifests: [],
-    errors: [],
-    scannedRepos: files.map((name) => `fixtures/${name}`),
-  };
-  let failed = false;
-
-  for (const name of files) {
-    const repo = `fixtures/${name}`;
-    const text = await readFile(path.join(fixturesDir, name), "utf8");
-    const parsed = parseManifest(text);
-    if (parsed.ok) {
-      result.manifests.push({ repo, sha: "fixture", manifest: parsed.manifest });
-    } else {
-      failed = true;
-      console.error(`${repo}: 検証に失敗しました`);
-      for (const error of parsed.errors) console.error(`  ${error}`);
-    }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(fixturesPath, "utf8"));
+  } catch {
+    console.error("fixtures/nodes.json を読み込めませんでした");
+    return 1;
   }
-  if (failed) return 1;
 
-  const summary = await applyImportResult(getDb(), result);
-  console.log("seed 完了:", summary);
+  const db = getDb();
+  const preview = await previewImport(db, raw);
+  if (!preview.ok) {
+    console.error("fixtures/nodes.json の検証に失敗しました:");
+    for (const error of preview.errors) console.error(`  ${error}`);
+    return 1;
+  }
+  console.log(`プレビュー: 追加 ${preview.added} 件、更新 ${preview.updated} 件`);
+
+  const summary = await importNodes(db, raw, () => new Date());
+  console.log(`seed 完了: 追加 ${summary.added} 件、更新 ${summary.updated} 件`);
   return 0;
 }
 
 try {
   process.exitCode = await main();
 } catch (e) {
-  if (e instanceof EnvError) {
+  if (e instanceof EnvError || e instanceof NodeServiceError) {
     console.error(e.message);
     process.exitCode = 1;
   } else {

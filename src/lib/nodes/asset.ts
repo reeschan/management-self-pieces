@@ -33,15 +33,15 @@ export function contentTypeOf(kind: AssetKind): string {
 }
 
 /**
- * node.yaml に書かれた detail と diagrams のパスと完全一致し、
+ * Node に登録された detail と diagrams のパスと完全一致し、
  * かつ対象の拡張子のときだけ読ませてよい
  */
 export function isAllowedAsset(
-  node: { detailPath: string; diagrams: { path: string }[] },
+  node: { detailPath: string | null; diagrams: { path: string }[] },
   path: string,
 ): boolean {
   if (assetKindOf(path) === null) return false;
-  if (path === node.detailPath) return true;
+  if (node.detailPath !== null && path === node.detailPath) return true;
   return node.diagrams.some((d) => d.path === path);
 }
 

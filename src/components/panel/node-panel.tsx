@@ -1,9 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { BoardTab } from "./devloop/board-tab";
+import { IterationsTab } from "./devloop/iterations-tab";
+import { LoopTab } from "./devloop/loop-tab";
+import type { DevloopViewData } from "./devloop/types";
 import { DiagramView } from "./diagram-view";
 import { TicketsTab, type PanelTask } from "./tickets-tab";
 
@@ -16,7 +21,8 @@ type PanelDetail = {
     status: string;
     tags: string[];
     links: Record<string, string>;
-    sourceRepo: string;
+    sourceRepo: string | null;
+    repoReachable: boolean;
     updatedAt: string;
   };
   detail: { path: string; markdown: string | null };
@@ -28,7 +34,6 @@ type PanelDetail = {
   }[];
   asana: { projectId: string; url: string | null } | null;
   tasks: PanelTask[];
-  importErrors: { path: string; message: string }[];
 };
 
 type Result =
@@ -36,8 +41,23 @@ type Result =
   | { nodeId: string; status: "notFound" }
   | { nodeId: string; status: "error"; message: string };
 
-const TABS = ["概要", "詳細", "アーキ図", "チケット", "リンク"] as const;
+type DevloopResult =
+  | { nodeId: string; status: "ok"; data: DevloopViewData }
+  | { nodeId: string; status: "error"; message: string };
+
+const TABS = [
+  "概要",
+  "詳細",
+  "アーキ図",
+  "チケット",
+  "リンク",
+  "看板",
+  "開発ループ",
+  "イテレーション",
+] as const;
 type Tab = (typeof TABS)[number];
+
+const DEVLOOP_TABS: readonly Tab[] = ["看板", "開発ループ", "イテレーション"];
 
 export function NodePanel({
   nodeId,
@@ -50,6 +70,14 @@ export function NodePanel({
   const [result, setResult] = useState<Result | null>(null);
   const [tab, setTab] = useState<Tab>("概要");
   const [prevNodeId, setPrevNodeId] = useState(nodeId);
+  // devloop のタブを初めて開いた Node の id (開くまでは fetch しない)
+  const [devloopRequestedFor, setDevloopRequestedFor] = useState<string | null>(
+    null,
+  );
+  const [devloopReloadCount, setDevloopReloadCount] = useState(0);
+  const [devloopResult, setDevloopResult] = useState<DevloopResult | null>(
+    null,
+  );
 
   if (prevNodeId !== nodeId) {
     setPrevNodeId(nodeId);
@@ -83,6 +111,32 @@ export function NodePanel({
     return () => controller.abort();
   }, [nodeId, reloadCount]);
 
+  const devloopWanted = devloopRequestedFor === nodeId;
+  useEffect(() => {
+    if (!devloopWanted) return;
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/nodes/${encodeURIComponent(nodeId)}/devloop`,
+          { signal: controller.signal },
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = (await res.json()) as DevloopViewData;
+        if (controller.signal.aborted) return;
+        setDevloopResult({ nodeId, status: "ok", data });
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setDevloopResult({
+          nodeId,
+          status: "error",
+          message: error instanceof Error ? error.message : "unknown error",
+        });
+      }
+    })();
+    return () => controller.abort();
+  }, [nodeId, devloopWanted, devloopReloadCount]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -92,10 +146,23 @@ export function NodePanel({
   }, [onClose]);
 
   const reload = useCallback(() => setReloadCount((n) => n + 1), []);
+  const reloadDevloop = useCallback(
+    () => setDevloopReloadCount((n) => n + 1),
+    [],
+  );
+
+  function selectTab(t: Tab) {
+    setTab(t);
+    if (DEVLOOP_TABS.includes(t)) setDevloopRequestedFor(nodeId);
+  }
 
   // 再取得中は直前の結果を残し、別 Node に切り替わったときだけ読み込み中にする
   const current = result !== null && result.nodeId === nodeId ? result : null;
   const data = current?.status === "ok" ? current.data : null;
+  const devloopCurrent =
+    devloopResult !== null && devloopResult.nodeId === nodeId
+      ? devloopResult
+      : null;
 
   return (
     <div className="flex h-full w-full flex-col text-zinc-100">
@@ -134,7 +201,10 @@ export function NodePanel({
 
       {data && (
         <>
-          <div role="tablist" className="flex border-b border-zinc-800 text-sm">
+          <div
+            role="tablist"
+            className="flex overflow-x-auto border-b border-zinc-800 text-sm"
+          >
             {TABS.map((t) => (
               <button
                 key={t}
@@ -143,8 +213,8 @@ export function NodePanel({
                 id={`tab-${t}`}
                 aria-selected={tab === t}
                 aria-controls="node-panel-tabpanel"
-                onClick={() => setTab(t)}
-                className={`flex-1 px-1 py-2 ${
+                onClick={() => selectTab(t)}
+                className={`flex-1 whitespace-nowrap px-2 py-2 ${
                   tab === t
                     ? "border-b-2 border-indigo-400 text-white"
                     : "text-zinc-400 hover:text-zinc-200"
@@ -160,7 +230,13 @@ export function NodePanel({
             aria-labelledby={`tab-${tab}`}
             className="flex-1 overflow-y-auto p-4"
           >
-            <TabBody tab={tab} data={data} onChanged={reload} />
+            <TabBody
+              tab={tab}
+              data={data}
+              onChanged={reload}
+              devloop={devloopCurrent}
+              onDevloopChanged={reloadDevloop}
+            />
           </div>
         </>
       )}
@@ -172,27 +248,19 @@ function TabBody({
   tab,
   data,
   onChanged,
+  devloop,
+  onDevloopChanged,
 }: {
   tab: Tab;
   data: PanelDetail;
   onChanged: () => void;
+  devloop: DevloopResult | null;
+  onDevloopChanged: () => void;
 }) {
   switch (tab) {
     case "概要":
       return (
         <div className="space-y-3 text-sm">
-          {data.importErrors.length > 0 && (
-            <div className="rounded border border-amber-600 bg-amber-950/40 p-2 text-amber-200">
-              <p className="font-semibold">取り込みの警告</p>
-              <ul className="mt-1 list-disc pl-4 text-xs">
-                {data.importErrors.map((e) => (
-                  <li key={`${e.path}:${e.message}`}>
-                    {e.path}: {e.message}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
           <p className="whitespace-pre-wrap">{data.node.summary}</p>
           {data.node.tags.length > 0 && (
             <ul className="flex flex-wrap gap-1">
@@ -212,13 +280,33 @@ function TabBody({
               <dd className="inline">{data.node.updatedAt}</dd>
             </div>
             <div>
-              <dt className="inline">取り込み元: </dt>
-              <dd className="inline">{data.node.sourceRepo}</dd>
+              <dt className="inline">リポジトリ: </dt>
+              <dd className="inline">{data.node.sourceRepo ?? "なし"}</dd>
+              {data.node.sourceRepo !== null && !data.node.repoReachable && (
+                <span className="ml-2 rounded bg-red-600 px-1.5 py-0.5 text-xs font-medium text-white">
+                  リポジトリに届きません
+                </span>
+              )}
             </div>
           </dl>
+          <p>
+            <Link
+              href={`/nodes/${encodeURIComponent(data.node.id)}/edit`}
+              className="text-indigo-300 underline"
+            >
+              編集
+            </Link>
+          </p>
         </div>
       );
     case "詳細":
+      if (data.node.sourceRepo === null) {
+        return (
+          <p className="text-sm text-zinc-400">
+            リポジトリの無い Node には詳細がありません
+          </p>
+        );
+      }
       return data.detail.markdown === null ? (
         <p className="text-sm text-zinc-400">
           詳細を読み込めませんでした ({data.detail.path})
@@ -231,7 +319,7 @@ function TabBody({
     case "アーキ図":
       return data.diagrams.length === 0 ? (
         <p className="text-sm text-zinc-400">
-          node.yaml の diagrams に図を追加すると表示されます
+          Node の編集画面で図のパスを足すと表示されます
         </p>
       ) : (
         <div className="space-y-4">
@@ -256,6 +344,39 @@ function TabBody({
           onChanged={onChanged}
         />
       );
+    case "看板":
+    case "開発ループ":
+    case "イテレーション": {
+      if (devloop === null) {
+        return <p className="text-sm text-zinc-400">読み込み中...</p>;
+      }
+      if (devloop.status === "error") {
+        return (
+          <p role="alert" className="text-sm text-red-400">
+            読み込みに失敗しました ({devloop.message})
+          </p>
+        );
+      }
+      if (tab === "看板") {
+        return (
+          <BoardTab
+            nodeId={data.node.id}
+            view={devloop.data}
+            onChanged={onDevloopChanged}
+          />
+        );
+      }
+      if (tab === "開発ループ") {
+        return (
+          <LoopTab
+            nodeId={data.node.id}
+            view={devloop.data}
+            onChanged={onDevloopChanged}
+          />
+        );
+      }
+      return <IterationsTab iterations={devloop.data.iterations} />;
+    }
     case "リンク": {
       const entries = Object.entries(data.node.links);
       return entries.length === 0 ? (

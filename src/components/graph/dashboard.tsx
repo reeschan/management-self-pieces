@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 
@@ -15,9 +16,11 @@ export function Dashboard({ data }: { data: GraphData }) {
     return (
       <div className="flex flex-1 items-center justify-center bg-[#05060a] p-8 text-zinc-300">
         <p>
-          Node がありません。<code>pnpm db:seed</code>{" "}
-          でサンプルを入れるか、GitHub App を入れたリポジトリに node.yaml
-          を置いてください
+          Node がありません。
+          <Link href="/nodes" className="text-indigo-300 underline">
+            Node 画面
+          </Link>
+          から登録してください
         </p>
       </div>
     );

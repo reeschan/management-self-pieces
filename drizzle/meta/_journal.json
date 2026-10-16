@@ -22,6 +22,27 @@
       "when": 1791899005946,
       "tag": "0002_wet_payback",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791903177335,
+      "tag": "0003_calm_deathstrike",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791926606971,
+      "tag": "0004_fixed_exodus",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791926615515,
+      "tag": "0005_remarkable_infant_terrible",
+      "breakpoints": true
     }
   ]
 }

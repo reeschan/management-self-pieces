@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 
 import { getDb } from "@/db/client";
-import { externalRefs, nodes, syncState, taskCache } from "@/db/schema";
+import { externalRefs, nodes, syncState } from "@/db/schema";
+import { saveTaskCache } from "@/lib/devloop/task-cache";
 import { asanaEnv } from "@/lib/env";
 import { createAsanaProvider } from "./asana";
 import type { ExternalRef, TaskInput, TrackerProvider, TrackerTask } from "./types";
@@ -91,42 +92,20 @@ export async function linkNodeToAsana(nodeId: string): Promise<ExternalRef> {
   return ref;
 }
 
-export async function refreshTasks(nodeId: string): Promise<number> {
+export async function refreshTasks(
+  nodeId: string,
+  now: Date = new Date(),
+): Promise<number> {
   const ref = await findRef(nodeId);
   if (!ref) return 0;
 
-  const tasks = await getTracker().listTasks(ref.externalId);
-  const db = getDb();
-  const del = db
-    .delete(taskCache)
-    .where(
-      and(
-        eq(taskCache.provider, PROVIDER),
-        eq(taskCache.projectExternalId, ref.externalId),
-      ),
-    );
-  if (tasks.length === 0) {
-    await db.batch([del]);
-    return 0;
-  }
-  const now = new Date();
-  await db.batch([
-    del,
-    db.insert(taskCache).values(
-      tasks.map((t) => ({
-        provider: PROVIDER,
-        externalId: t.externalId,
-        projectExternalId: ref.externalId,
-        nodeId,
-        name: t.name,
-        completed: t.completed,
-        dueOn: t.dueOn,
-        url: t.url,
-        updatedAt: now,
-      })),
-    ),
-  ]);
-  return tasks.length;
+  const details = await getTracker().listTaskDetails(ref.externalId);
+  return saveTaskCache(getDb(), {
+    nodeId,
+    projectId: ref.externalId,
+    details,
+    now,
+  });
 }
 
 export async function refreshTasksByProject(projectId: string): Promise<number> {
